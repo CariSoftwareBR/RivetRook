@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <img src="./RivetRook.png" alt="RivetRook CLI screenshot" width="1100">
+  <img src="./RivetRook-v1.1.0.png" alt="RivetRook CLI screenshot" width="1100">
 </p>
 
 <p align="center">
