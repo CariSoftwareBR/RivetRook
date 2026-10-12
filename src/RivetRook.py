@@ -3056,6 +3056,10 @@ def _os_icon(os_name: str) -> str:
 
 def main() -> None:
     """Entry point: bootstrap the environment, then run the interactive tool manager."""
+    # Non-interactive probe used by installers and AI agents to verify the setup.
+    if len(sys.argv) > 1 and sys.argv[1] in ("--version", "-V"):
+        print("RivetRook {}".format(__version__))
+        return
     os.system("cls" if sys.platform == "win32" else "clear")
     script_dir = Path(__file__).resolve().parent
     config_path = Path(sys.argv[1]) if len(sys.argv) > 1 else script_dir / "config.json"

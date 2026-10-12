@@ -1,463 +1,224 @@
-# RivetRook
-
 <p align="center">
-  <img src="https://img.shields.io/badge/Python-3.8+-blue?logo=python" alt="Python">
-  <img src="https://img.shields.io/badge/Node.js-20+-green?logo=node.js" alt="Node.js">
-  <img src="https://img.shields.io/badge/License-GPL--3.0-blue" alt="License">
-  <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Platform">
+  <img src="assets/banner.svg" alt="RivetRook — AI toolchain manager" width="100%">
 </p>
 
 <p align="center">
-  <img src="https://flagcdn.com/w20/br.png" width="20" alt="BR"> <a href="#português">Português</a> &nbsp;·&nbsp; <img src="https://flagcdn.com/w20/us.png" width="20" alt="US"> <a href="#english">English</a>
+  <b>Instale, atualize e gerencie todas as ferramentas de IA para programação — num só terminal.</b>
 </p>
 
 <p align="center">
-  <img src="./RivetRook-v1.1.0.png" alt="RivetRook CLI screenshot" width="1100">
+  <img src="https://img.shields.io/badge/python-3.8%2B-A78BFA?style=flat-square&logo=python&logoColor=white" alt="Python 3.8+">
+  <img src="https://img.shields.io/badge/node.js-20%2B-60A5FA?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js 20+">
+  <img src="https://img.shields.io/badge/windows%20·%20macOS%20·%20linux-22D3EE?style=flat-square&logo=windowsterminal&logoColor=white" alt="Windows · macOS · Linux">
+  <img src="https://img.shields.io/badge/licen%C3%A7a-GPL--3.0-34D399?style=flat-square" alt="Licença GPL-3.0">
 </p>
 
 <p align="center">
-  Exemplo da interface interativa do RivetRook · Example of the RivetRook interactive interface
+  <b>Português</b> &nbsp;·&nbsp; <a href="README.en.md">English</a>
 </p>
 
----
+<br>
 
-## ![BR](https://flagcdn.com/w20/br.png) Português <a id="português"></a>
-
-> **Gerenciador de ferramentas de IA via CLI** — Instala, atualiza e gerencia Claude, Codex, Gemini, OpenCode, Cline e IDEs com IA integrada.
-
-### Funcionalidades
-
-- ✅ Instalação automática de dependências (Node.js)
-- ✅ Multi-plataforma — Windows, Linux, macOS
-- ✅ Instalação, atualização e desinstalação com menu interativo
-- ✅ Gestão de API Keys integrada
-- ✅ Detecção paralela de versões com barra de progresso
-- ✅ Bilíngue — Português / English
-- ✅ Extensível via `config.json` — adicione suas próprias ferramentas
-- ✅ Atualização automática do próprio RivetRook
-
-### Atualização automática
-
-Ao iniciar, o RivetRook compara sua versão com a publicada na branch `main` do GitHub e, se houver uma mais nova, oferece atualizar e reiniciar:
-
-- **Clone git** (`git clone` deste repositório): executa `git pull --ff-only`
-- **Cópia avulsa**: baixa `src/RivetRook.py` e `src/config.json`, valida ambos e só então substitui os arquivos (um `config.json` passado como argumento nunca é alterado)
-
-Para desativar, defina a variável de ambiente `RIVETROOK_NO_UPDATE=1`.
-
-### Requisitos
-
-| Requisito | Versão |
-|-----------|--------|
-| **Python** | 3.8+ |
-| **Node.js** | 20+ (instalado automaticamente) |
-| **npm** | qualquer |
-
-> O Node.js é instalado automaticamente se não estiver presente.
-
-### Instalação
-
-**Windows**
-
-```powershell
-git clone https://github.com/paulocarinhena/RivetRook.git
-cd RivetRook\src
-python RivetRook.py
-```
-
-> Dica: use o atalho incluso:
-> ```powershell
-> .\Execute_RivetRook.bat
+> [!TIP]
+> **Instale com o seu agente de IA.** Cole no Claude Code, Codex, Gemini CLI, Cursor ou em qualquer outro agente:
+>
+> ```text
+> Instale o RivetRook: https://github.com/paulocarinhena/RivetRook
 > ```
+>
+> 🤖 *Agentes de IA: o passo a passo de instalação está em [`INSTALLATION.md`](INSTALLATION.md).*
 
-**Linux / macOS**
+<p align="center">
+  <img src="assets/demo-v1.1.0.svg" alt="Demonstração animada do RivetRook no terminal" width="100%">
+</p>
 
-```bash
+## ✦ Destaques
+
+<table>
+  <tr>
+    <td width="33%" valign="top"><b>⚡ Um menu, 23 ferramentas</b><br><sub>Claude Code, Codex, Gemini CLI, Cursor, Zed e muito mais — instalar, atualizar e remover a um número de distância.</sub></td>
+    <td width="33%" valign="top"><b>🔍 Sempre atualizado</b><br><sub>Detecta em paralelo a versão instalada e a última publicada, marcando o que tem atualização.</sub></td>
+    <td width="33%" valign="top"><b>🔁 Atualiza a si mesmo</b><br><sub>A cada início, compara com o GitHub e oferece a versão nova — via <code>git pull</code> ou download validado.</sub></td>
+  </tr>
+  <tr>
+    <td valign="top"><b>🖥️ Multiplataforma de verdade</b><br><sub>Windows, macOS e Linux (Debian, Fedora, Arch), usando <code>winget</code>, <code>brew</code>, <code>apt</code>, <code>dnf</code>, <code>pacman</code> e <code>npm</code>.</sub></td>
+    <td valign="top"><b>🔑 Chaves de API</b><br><sub>Configura e persiste as chaves das ferramentas que precisam delas, direto pelo menu.</sub></td>
+    <td valign="top"><b>🧩 Extensível</b><br><sub>Cada ferramenta é só uma entrada no <code>config.json</code>. Sem dependências: só a biblioteca padrão do Python.</sub></td>
+  </tr>
+</table>
+
+## 🚀 Instalação
+
+**Com um agente de IA** — use a frase da dica acima. O agente segue o [`INSTALLATION.md`](INSTALLATION.md), deixa o comando `rivetrook` disponível no terminal e confere a instalação.
+
+**Manualmente:**
+
+```sh
 git clone https://github.com/paulocarinhena/RivetRook.git
-cd RivetRook/src
-python3 RivetRook.py
+python3 RivetRook/src/RivetRook.py        # Windows: python RivetRook\src\RivetRook.py
 ```
 
-### Como Usar
+Para abrir com dois cliques, use `src/Execute_RivetRook.bat` (Windows) ou `src/Execute_RivetRook.sh` (Linux/macOS). Para ter o comando `rivetrook` em qualquer terminal, siga o [`INSTALLATION.md`](INSTALLATION.md).
 
-Ao iniciar, o programa:
+> **Requisitos:** Python 3.8+. O Node.js 20+ é instalado automaticamente na primeira execução, se faltar.
 
-1. Pergunta o idioma (Português / English)
-2. Oferece atualizar o RivetRook, se houver uma versão nova no GitHub
-3. Verifica o Node.js — instala se necessário
-4. Varre todas as ferramentas em paralelo (versão instalada e última disponível) e exibe o estado
-5. Apresenta o menu interativo
+## 🧭 Como usar
 
-**Legenda**
+Ao abrir, o RivetRook pergunta o idioma, oferece a própria atualização (se houver), verifica o Node.js e mostra o estado de todas as ferramentas. Escolha uma ou várias pelo número ou nome — `3`, `claude` ou `1,3,5` — e depois a ação: **instalar**, **atualizar**, **desinstalar** ou **configurar a chave de API**. `Enter` sem nada sai.
+
+<details>
+<summary><b>Legenda dos ícones</b></summary>
+<br>
 
 | Ícone | Significado |
-|-------|-------------|
+|:-----:|-------------|
 | `●` | Instalado |
 | `◐` | Instalado, mas só disponível via perfil de shell |
 | `○` | Não instalado |
 | `↑ x → y` | Atualização disponível |
-| `⚷` | Chave de API (verde = configurada, amarela = pendente) |
+| `⚷` | Chave de API — verde: configurada · amarela: pendente |
 
-**Navegação**
+</details>
 
-| Entrada | Ação |
-|---------|------|
-| `1` | Selecionar ferramenta pelo número |
-| `claude` | Selecionar pelo nome |
-| `1,3,5` | Selecionar múltiplas ferramentas |
-| `enter` (vazio) | Sair |
+## 🧰 Ferramentas suportadas
 
-**Ações disponíveis por ferramenta**
+<table>
+<tr><th align="left">CLIs de IA</th><th align="left">IDEs</th></tr>
+<tr><td valign="top">
 
-| Opção | Ação |
-|-------|------|
-| `1` | Instalar |
-| `2` | Atualizar |
-| `3` | Desinstalar |
-| `4` | Configurar API key (quando disponível) |
+| Ferramenta | Autor |
+|------------|-------|
+| **claude** | Anthropic |
+| **codex** | OpenAI |
+| **geminicli** | Google |
+| **agy** | Google · Antigravity |
+| **copilot** | GitHub / Microsoft |
+| **cursor-agent** | Anysphere |
+| **opencode** | SST / Dax |
+| **pi** | Earendil Works |
+| **kilocode** | Kilo Code |
+| **cline** | Cline Bot |
+| **qwen** | Alibaba Cloud |
+| **kimi** | Moonshot AI |
+| **grok** | xAI |
+| **groq** | Groq |
+| **openhands** | All Hands AI |
+| **forgecode** | Forge |
+| **crush** | Charmbracelet |
 
-### Ferramentas Suportadas
+</td><td valign="top">
 
-**CLI Tools**
+| IDE | Autor |
+|-----|-------|
+| **cursor** | Anysphere |
+| **zed** | Zed Industries |
+| **windsurf** | Codeium / Windsurf |
+| **antigravity** | Google |
+| **trae** | ByteDance / Trae |
+| **opencode-desktop** | Anomaly |
 
-| Ferramenta | Autor | Descrição |
-|-----------|-------|-----------|
-| **codex** | OpenAI | Agente de codificação autônomo no terminal |
-| **pi** | Earendil Works | Agente de codificação terminal com SDK e extensões |
-| **claude** | Anthropic | CLI oficial do Claude Code |
-| **opencode** | SST / Dax | Assistente open source multi-modelo |
-| **copilot** | GitHub / Microsoft | Assistente com integração nativa ao GitHub |
-| **cody** | Sourcegraph | CLI para chat e automação de código |
-| **kilocode** | Kilo Code | Fork open source do Cline |
-| **geminicli** | Google | CLI oficial do Gemini (geminicli.com) |
-| **kimi** | Moonshot AI | CLI com suporte a ACP/MCP |
-| **qwen** | Alibaba | Assistente de codificação da Alibaba |
-| **groq** | Groq | CLI com inferência ultra-rápida via LPU |
-| **openhands** | All Hands AI | Agente autônomo de desenvolvimento |
-| **cline** | Cline | Agente autônomo no VS Code terminal |
-| **forgecode** | Forge | CLI conversacional para repositórios |
-| **crush** | Charmbracelet | Agente TUI elegante |
-| **grok** | xAI | CLI do Grok |
-| **cursor-agent** | Anysphere | CLI do Cursor para codificação agentica |
+</td></tr>
+</table>
 
-**IDEs**
+Falta alguma? Adicionar é editar o `config.json` — veja abaixo.
 
-| IDE | Autor | Descrição |
-|-----|-------|-----------|
-| **cursor** | Anysphere | Editor com IA baseado no VS Code |
-| **zed** | Zed Industries | Editor de alta performance com IA |
-| **trae** | ByteDance | IDE com agentes IA |
-| **opencode-desktop** | SST / Dax | OpenCode em interface gráfica |
-| **windsurf** | Codeium | IDE agentic |
+## 📚 Referência
 
-### Gerenciadores por Plataforma
+<details>
+<summary><b>Atualização automática</b></summary>
+<br>
 
-| Plataforma | Gerenciadores usados |
-|------------|----------------------|
-| Windows | `winget`, `PowerShell` |
-| macOS | `brew`, `npm`, `curl` |
-| Linux (Debian/Ubuntu) | `apt`, `npm`, `curl` |
-| Linux (Fedora/RHEL) | `dnf`, `npm`, `curl` |
-| Linux (Arch) | `pacman`, `npm`, `curl` |
+Ao iniciar, o RivetRook compara o seu <code>__version__</code> com o publicado na branch `main` do GitHub. Se houver uma versão mais nova, ele oferece atualizar e reiniciar:
 
-### API Keys
+- **Clone git** deste repositório → `git pull --ff-only`
+- **Cópia avulsa** → baixa `src/RivetRook.py` e `src/config.json`, valida os dois e só então substitui os arquivos (um `config.json` passado como argumento nunca é alterado)
 
-Algumas ferramentas requerem uma API key para funcionar. O RivetRook:
+Para desativar, defina a variável de ambiente `RIVETROOK_NO_UPDATE=1`.
 
-- **Detecta automaticamente** se a chave já está configurada
-- **Solicita a chave** logo após uma instalação bem-sucedida
-- **Salva no arquivo de configuração** da ferramenta (ex.: `~/.claude.json`)
-- **Persiste como variável de ambiente** nos arquivos de shell (`.bashrc`, `.zshrc`, `.profile`) no Linux/macOS
+</details>
 
-Para configurar a chave de uma ferramenta já instalada, selecione-a no menu e escolha a opção **4 – Configurar API key**.
+<details>
+<summary><b>Chaves de API</b></summary>
+<br>
 
-### Como Adicionar Ferramentas
+Para as ferramentas que precisam de chave, o RivetRook:
 
-O RivetRook é totalmente extensível. Edite `src/config.json` para adicionar novas ferramentas na seção `"tools"` ou `"ides"`:
+- detecta se a chave já está configurada;
+- pede a chave logo após a instalação;
+- salva no arquivo de configuração da própria ferramenta (ex.: `~/.claude.json`);
+- persiste como variável de ambiente nos arquivos de shell (`.bashrc`, `.zshrc`, `.profile`) no Linux/macOS.
+
+Para configurar depois, escolha a ferramenta no menu e a opção **4 – Configurar API key**.
+
+</details>
+
+<details>
+<summary><b>Adicionar uma ferramenta</b></summary>
+<br>
+
+Cada ferramenta é uma entrada em `src/config.json`, na seção `"tools"` ou `"ides"` (a ordem do menu segue a ordem do JSON):
 
 ```jsonc
 "minha-ferramenta": {
   "author": "Empresa",
   "description": "Descrição em português",
   "description_en": "Description in English",
-  "needs_git": 0,
   "install": {
     "all": "npm install -g minha-ferramenta",
     "windows": "winget install -e --id Empresa.Ferramenta",
     "macos": "brew install minha-ferramenta",
-    "linux": {
-      "debian": "apt-get install -y minha-ferramenta",
-      "fedora": "dnf install -y minha-ferramenta",
-      "default": "npm install -g minha-ferramenta"
-    }
+    "linux": { "debian": "apt-get install -y minha-ferramenta", "default": "npm install -g minha-ferramenta" }
   },
   "upgrade": { "all": "npm install -g minha-ferramenta@latest" },
   "uninstall": { "all": "npm uninstall -g minha-ferramenta" },
-  "run": "minha-ferramenta",
-  "version_cmd": { "all": "minha-ferramenta --version" }
+  "run": "minha-ferramenta"
 }
 ```
 
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| `author` | string | Nome do autor/empresa |
-| `description` | string | Descrição em português |
-| `description_en` | string | Descrição em inglês |
-| `needs_git` | 0/1 | Requer Git no Windows |
-| `install` | object | Comandos por plataforma (`all`, `windows`, `macos`, `linux`) |
-| `upgrade` | object | Comandos de atualização |
-| `uninstall` | object | Comandos de desinstalação (inferido automaticamente se ausente) |
-| `run` | string | Binário principal (detecção de versão e estado) |
-| `version_cmd` | string/object | Comando alternativo para obter a versão |
-| `version_regex` | string | Regex para extrair a versão (grupo de captura 1) |
-| `skip_version_probe` | bool | Não executa o binário para detectar versão (IDEs gráficas) |
-| `path_entry` | object | Diretório a adicionar ao PATH após instalar |
-| `configure` | object | Configuração de API key (`env_var`, `settings_file`, `settings_key`, `prompt`) |
+| Campo | Descrição |
+|-------|-----------|
+| `author`, `description`, `description_en` | Autor e descrições exibidos no menu |
+| `install` · `upgrade` · `uninstall` | Comandos por plataforma: `all`, `windows`, `macos`, `linux` (ou `debian`/`fedora`/`arch`/`default`). Sem `uninstall`, ele é deduzido do `install` para `winget`, `brew`, `npm`, `bun`, `apt-get`, `dnf`/`yum` e `pacman` |
+| `run` | Binário principal, usado para detectar a instalação |
+| `version_cmd` · `version_regex` | Comando e regex (grupo 1) para ler a versão instalada |
+| `latest` | Onde buscar a última versão: `npm`, `pypi`, `brew_cask`, `brew_formula`, `github` (`dono/repo`) ou `url` + `regex`. Deduzido automaticamente de instalações via `npm`, `bun` e `brew` |
+| `skip_version_probe` | Não executa o binário para detectar a versão (apps gráficos) |
+| `needs_git` | Exige Git no Windows |
+| `path_entry` | Pasta a adicionar ao `PATH` após instalar |
+| `configure` | Chave de API: `env_var`, `settings_file`, `settings_key`, `prompt` |
 
-### Contribuindo
+Para contribuir com uma ferramenta nova, veja o [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-Contribuições são bem-vindas! Veja [CONTRIBUTING.md](./CONTRIBUTING.md) para:
+</details>
 
-- Como reportar bugs ou solicitar novas ferramentas
-- Como propor uma nova ferramenta via Pull Request
-- Diretrizes de código
+<details>
+<summary><b>Gerenciadores de pacotes por plataforma</b></summary>
+<br>
 
-### Aviso Legal
-
-> **RivetRook é apenas um facilitador de instalação.**
->
-> Esta ferramenta não modifica, redistribui nem se apropria de nenhum software de terceiros. Ela apenas automatiza a execução dos comandos de instalação oficiais fornecidos pelos próprios fabricantes (via `npm`, `winget`, `brew`, `apt`, etc.), exatamente como você faria manualmente no terminal.
->
-> Todas as ferramentas listadas são propriedade exclusiva de suas respectivas empresas desenvolvedoras. RivetRook não possui nenhuma afiliação com essas empresas.
->
-> O objetivo do projeto é tornar acessível a qualquer pessoa — independente do nível técnico — a instalação de ferramentas oficiais de IA de forma simples, segura e rastreável.
-
-### Licença
-
-[GPL-3.0](./LICENSE)
-
----
-
-## ![US](https://flagcdn.com/w20/us.png) English <a id="english"></a>
-
-> **AI toolchain manager** — Install, update and manage AI coding tools like Claude, Codex, Gemini, OpenCode, Cline and AI-powered IDEs from a single interactive CLI.
-
-### Features
-
-- ✅ Automatic dependency installation (Node.js)
-- ✅ Cross-platform — Windows, Linux, macOS
-- ✅ Install, update and uninstall via interactive menu
-- ✅ Built-in API Key management
-- ✅ Parallel version detection with progress bar
-- ✅ Bilingual — Português / English
-- ✅ Extensible via `config.json` — add your own tools
-- ✅ Self-update for RivetRook itself
-
-### Self-update
-
-On startup RivetRook compares its version with the one published on the GitHub `main` branch and, when a newer one exists, offers to update and restart:
-
-- **Git clone** (`git clone` of this repository): runs `git pull --ff-only`
-- **Standalone copy**: downloads `src/RivetRook.py` and `src/config.json`, validates both and only then replaces the files (a `config.json` passed as an argument is never touched)
-
-To disable it, set the environment variable `RIVETROOK_NO_UPDATE=1`.
-
-### Requirements
-
-| Requirement | Version |
-|-------------|---------|
-| **Python** | 3.8+ |
-| **Node.js** | 20+ (installed automatically) |
-| **npm** | any |
-
-> Node.js is installed automatically if not present.
-
-### Installation
-
-**Windows**
-
-```powershell
-git clone https://github.com/paulocarinhena/RivetRook.git
-cd RivetRook\src
-python RivetRook.py
-```
-
-> Tip: use the included shortcut:
-> ```powershell
-> .\Execute_RivetRook.bat
-> ```
-
-**Linux / macOS**
-
-```bash
-git clone https://github.com/paulocarinhena/RivetRook.git
-cd RivetRook/src
-python3 RivetRook.py
-```
-
-### Usage
-
-On startup, the program:
-
-1. Asks for the language (Português / English)
-2. Offers to update RivetRook when a newer version is on GitHub
-3. Checks for Node.js — installs it if missing
-4. Scans all tools in parallel (installed and latest available version) and displays their state
-5. Shows the interactive menu
-
-**Legend**
-
-| Icon | Meaning |
-|------|---------|
-| `●` | Installed |
-| `◐` | Installed, but only available through the shell profile |
-| `○` | Not installed |
-| `↑ x → y` | Update available |
-| `⚷` | API key (green = configured, yellow = pending) |
-
-**Navigation**
-
-| Input | Action |
-|-------|--------|
-| `1` | Select tool by number |
-| `claude` | Select by name |
-| `1,3,5` | Select multiple tools |
-| `enter` (empty) | Exit |
-
-**Available actions per tool**
-
-| Option | Action |
-|--------|--------|
-| `1` | Install |
-| `2` | Update |
-| `3` | Uninstall |
-| `4` | Configure API key (when available) |
-
-### Supported Tools
-
-**CLI Tools**
-
-| Tool | Author | Description |
-|------|--------|-------------|
-| **codex** | OpenAI | Autonomous coding agent in the terminal |
-| **pi** | Earendil Works | Terminal coding agent with SDK and extensions |
-| **claude** | Anthropic | Official Claude Code CLI |
-| **opencode** | SST / Dax | Open-source multi-model coding assistant |
-| **copilot** | GitHub / Microsoft | Assistant with native GitHub integration |
-| **cody** | Sourcegraph | CLI for chat and code automation |
-| **kilocode** | Kilo Code | Open-source fork of Cline |
-| **geminicli** | Google | Official Gemini CLI (geminicli.com) |
-| **kimi** | Moonshot AI | CLI with ACP/MCP support |
-| **qwen** | Alibaba | Alibaba coding assistant CLI |
-| **groq** | Groq | CLI with ultra-fast LPU inference |
-| **openhands** | All Hands AI | Autonomous development agent |
-| **cline** | Cline | Autonomous agent in the VS Code terminal |
-| **forgecode** | Forge | Conversational CLI for repositories |
-| **crush** | Charmbracelet | Elegant TUI agent |
-| **grok** | xAI | Grok CLI |
-| **cursor-agent** | Anysphere | Cursor CLI for agentic coding |
-
-**IDEs**
-
-| IDE | Author | Description |
-|-----|--------|-------------|
-| **cursor** | Anysphere | AI-powered editor based on VS Code |
-| **zed** | Zed Industries | High-performance editor with AI |
-| **trae** | ByteDance | IDE with AI agents |
-| **opencode-desktop** | SST / Dax | OpenCode in a graphical interface |
-| **windsurf** | Codeium | Agentic IDE |
-
-### Package Managers by Platform
-
-| Platform | Package managers used |
-|----------|-----------------------|
-| Windows | `winget`, `PowerShell` |
+| Plataforma | Gerenciadores |
+|------------|---------------|
+| Windows | `winget`, PowerShell 7 (`pwsh`), `npm` |
 | macOS | `brew`, `npm`, `curl` |
-| Linux (Debian/Ubuntu) | `apt`, `npm`, `curl` |
-| Linux (Fedora/RHEL) | `dnf`, `npm`, `curl` |
-| Linux (Arch) | `pacman`, `npm`, `curl` |
+| Debian / Ubuntu | `apt`, `npm`, `curl` |
+| Fedora / RHEL | `dnf`, `npm`, `curl` |
+| Arch | `pacman`, `npm`, `curl` |
 
-### API Keys
+</details>
 
-Some tools require an API key to function. RivetRook:
+<details>
+<summary><b>Aviso legal</b></summary>
+<br>
 
-- **Automatically detects** if a key is already configured
-- **Prompts for the key** right after a successful installation
-- **Saves it to the tool's config file** (e.g. `~/.claude.json`)
-- **Persists it as an environment variable** in shell RC files (`.bashrc`, `.zshrc`, `.profile`) on Linux/macOS
+O RivetRook é apenas um facilitador de instalação: ele executa os comandos oficiais publicados por cada fabricante (`npm`, `winget`, `brew`, `apt`…), exatamente como você faria no terminal. Ele não modifica, redistribui nem se apropria de nenhum software de terceiros, e não tem afiliação com as empresas listadas — todas as ferramentas pertencem aos seus respectivos donos.
 
-To configure a key for an already-installed tool, select it in the menu and choose option **4 – Configure API key**.
+</details>
 
-### Adding New Tools
+## 🤝 Contribuindo
 
-RivetRook is fully extensible. Edit `src/config.json` to add new tools under `"tools"` or `"ides"`:
+Bugs, ideias e novas ferramentas são bem-vindos — veja o [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-```jsonc
-"my-tool": {
-  "author": "Company",
-  "description": "Descrição em português",
-  "description_en": "Description in English",
-  "needs_git": 0,
-  "install": {
-    "all": "npm install -g my-tool",
-    "windows": "winget install -e --id Company.Tool",
-    "macos": "brew install my-tool",
-    "linux": {
-      "debian": "apt-get install -y my-tool",
-      "fedora": "dnf install -y my-tool",
-      "default": "npm install -g my-tool"
-    }
-  },
-  "upgrade": { "all": "npm install -g my-tool@latest" },
-  "uninstall": { "all": "npm uninstall -g my-tool" },
-  "run": "my-tool",
-  "version_cmd": { "all": "my-tool --version" }
-}
-```
+<br>
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `author` | string | Author / company name |
-| `description` | string | Description in Portuguese |
-| `description_en` | string | Description in English |
-| `needs_git` | 0/1 | Requires Git on Windows |
-| `install` | object | Commands per platform (`all`, `windows`, `macos`, `linux`) |
-| `upgrade` | object | Update commands |
-| `uninstall` | object | Uninstall commands (auto-inferred if omitted) |
-| `run` | string | Main binary (used for version detection and state) |
-| `version_cmd` | string/object | Alternative command to get the version |
-| `version_regex` | string | Regex to extract the version (capture group 1) |
-| `skip_version_probe` | bool | Skip running the binary to detect version (GUI IDEs) |
-| `path_entry` | object | Directory to add to PATH after install |
-| `configure` | object | API key config (`env_var`, `settings_file`, `settings_key`, `prompt`) |
-
-### Contributing
-
-Contributions are welcome! See [CONTRIBUTING.md](./CONTRIBUTING.md) for:
-
-- How to report bugs or request new tools
-- How to propose a new tool via Pull Request
-- Code guidelines
-
-### Disclaimer
-
-> **RivetRook is an installation facilitator only.**
->
-> This tool does not modify, redistribute, or claim ownership of any third-party software. It simply automates the official installation commands provided by each tool's own vendor (via `npm`, `winget`, `brew`, `apt`, etc.) — exactly as you would run them manually in a terminal.
->
-> All listed tools are the exclusive property of their respective developers and companies. RivetRook has no affiliation with any of them.
->
-> The goal of this project is to make it easy for anyone — regardless of technical background — to install official AI tools in a simple, safe and transparent way.
-
-### License
-
-[GPL-3.0](./LICENSE)
-
----
-
-<div align="center">
-
-Made with ❤️ for the AI developer community.  
-Created by **Paulo Carinhena** — https://github.com/paulocarinhena
-
-</div>
+<p align="center">
+  <sub>Feito com 💜 por <a href="https://github.com/paulocarinhena">Paulo Carinhena</a> · Licença <a href="LICENSE">GPL-3.0</a></sub>
+</p>

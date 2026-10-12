@@ -1,0 +1,29 @@
+#!/bin/sh
+# RivetRook launcher (Linux/macOS).
+# Works when called directly, via PATH, or through a symlink (e.g. ~/.local/bin).
+
+self=$0
+while [ -h "$self" ]; do
+    link=$(readlink "$self")
+    case $link in
+        /*) self=$link ;;
+        *) self=$(dirname "$self")/$link ;;
+    esac
+done
+root=$(cd "$(dirname "$self")/.." && pwd)
+
+# Probe by running the interpreter: stubs (e.g. the Windows Store alias) exist on
+# PATH but cannot execute anything.
+py=
+for candidate in python3 python; do
+    if "$candidate" -c "import sys; sys.exit(sys.version_info < (3, 8))" >/dev/null 2>&1; then
+        py=$candidate
+        break
+    fi
+done
+if [ -z "$py" ]; then
+    echo "RivetRook: Python 3.8+ not found. See INSTALLATION.md." >&2
+    exit 1
+fi
+
+exec "$py" "$root/src/RivetRook.py" "$@"
