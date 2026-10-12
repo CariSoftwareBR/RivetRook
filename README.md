@@ -83,9 +83,20 @@ python3 RivetRook.py
 Ao iniciar, o programa:
 
 1. Pergunta o idioma (Português / English)
-2. Verifica o Node.js — instala se necessário
-3. Varre todas as ferramentas em paralelo e exibe o estado
-4. Apresenta o menu interativo
+2. Oferece atualizar o RivetRook, se houver uma versão nova no GitHub
+3. Verifica o Node.js — instala se necessário
+4. Varre todas as ferramentas em paralelo (versão instalada e última disponível) e exibe o estado
+5. Apresenta o menu interativo
+
+**Legenda**
+
+| Ícone | Significado |
+|-------|-------------|
+| `●` | Instalado |
+| `◐` | Instalado, mas só disponível via perfil de shell |
+| `○` | Não instalado |
+| `↑ x → y` | Atualização disponível |
+| `⚷` | Chave de API (verde = configurada, amarela = pendente) |
 
 **Navegação**
 
@@ -289,9 +300,20 @@ python3 RivetRook.py
 On startup, the program:
 
 1. Asks for the language (Português / English)
-2. Checks for Node.js — installs it if missing
-3. Scans all tools in parallel and displays their state
-4. Shows the interactive menu
+2. Offers to update RivetRook when a newer version is on GitHub
+3. Checks for Node.js — installs it if missing
+4. Scans all tools in parallel (installed and latest available version) and displays their state
+5. Shows the interactive menu
+
+**Legend**
+
+| Icon | Meaning |
+|------|---------|
+| `●` | Installed |
+| `◐` | Installed, but only available through the shell profile |
+| `○` | Not installed |
+| `↑ x → y` | Update available |
+| `⚷` | API key (green = configured, yellow = pending) |
 
 **Navigation**
 
