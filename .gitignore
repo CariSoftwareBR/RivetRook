@@ -207,3 +207,7 @@ marimo/_lsp/
 __marimo__/
 /src/.claude
 release.md
+
+# Demo tooling (local only); banner.svg and demo-v*.svg stay tracked: the READMEs embed them
+/assets/make_demo.py
+/assets/screenshot-v*.png
