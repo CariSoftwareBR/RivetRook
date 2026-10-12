@@ -80,7 +80,7 @@ No Windows, também pode usar `src/Execute_RivetRook.bat`.
 
 - descreva o que mudou e por quê
 - informe em quais plataformas testou
-- se adicionou ferramenta nova, atualize a lista de ferramentas no `README.md`
+- se adicionou ferramenta nova, atualize a lista de ferramentas no `README.md` e no `README.pt-br.md`
 
 ---
 
@@ -160,7 +160,7 @@ On Windows, you can also use `src/Execute_RivetRook.bat`.
 
 - explain what changed and why
 - include which platforms you tested
-- if you added a new tool, update the supported tools list in `README.md`
+- if you added a new tool, update the supported tools list in `README.md` and `README.pt-br.md`
 
 ---
 
