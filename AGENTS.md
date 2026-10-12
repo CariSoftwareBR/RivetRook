@@ -17,6 +17,10 @@
 - Use `skip_version_probe: true` for GUI apps that should not be launched during detection.
 - If `uninstall` is omitted, uninstall is inferred from `install` only for known patterns (`winget`, `brew`, `npm`, `bun`, `apt-get`, `dnf`/`yum`, `pacman`).
 
+## Releases and self-update
+- `__version__` at the top of `src/RivetRook.py` drives self-update: on startup the app fetches `src/RivetRook.py` from GitHub `main` and offers to update when the published `__version__` is higher. Bump it on every release, or users are never notified.
+- Update path: `git pull --ff-only` only when the script is at `<root>/src/RivetRook.py` of a clone whose `origin` is `paulocarinhena/RivetRook`; otherwise download + validate + atomic swap of `RivetRook.py` and the default `config.json`. `RIVETROOK_NO_UPDATE=1` disables it.
+
 ## Strings and UX changes
 - Any user-facing text should come from `config.json` i18n keys via `_t(...)`; update both `i18n.pt-br` and `i18n.en`.
 - Keep comments/docstrings in English in source code.

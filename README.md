@@ -34,6 +34,16 @@
 - ✅ Detecção paralela de versões com barra de progresso
 - ✅ Bilíngue — Português / English
 - ✅ Extensível via `config.json` — adicione suas próprias ferramentas
+- ✅ Atualização automática do próprio RivetRook
+
+### Atualização automática
+
+Ao iniciar, o RivetRook compara sua versão com a publicada na branch `main` do GitHub e, se houver uma mais nova, oferece atualizar e reiniciar:
+
+- **Clone git** (`git clone` deste repositório): executa `git pull --ff-only`
+- **Cópia avulsa**: baixa `src/RivetRook.py` e `src/config.json`, valida ambos e só então substitui os arquivos (um `config.json` passado como argumento nunca é alterado)
+
+Para desativar, defina a variável de ambiente `RIVETROOK_NO_UPDATE=1`.
 
 ### Requisitos
 
@@ -230,6 +240,16 @@ Contribuições são bem-vindas! Veja [CONTRIBUTING.md](./CONTRIBUTING.md) para:
 - ✅ Parallel version detection with progress bar
 - ✅ Bilingual — Português / English
 - ✅ Extensible via `config.json` — add your own tools
+- ✅ Self-update for RivetRook itself
+
+### Self-update
+
+On startup RivetRook compares its version with the one published on the GitHub `main` branch and, when a newer one exists, offers to update and restart:
+
+- **Git clone** (`git clone` of this repository): runs `git pull --ff-only`
+- **Standalone copy**: downloads `src/RivetRook.py` and `src/config.json`, validates both and only then replaces the files (a `config.json` passed as an argument is never touched)
+
+To disable it, set the environment variable `RIVETROOK_NO_UPDATE=1`.
 
 ### Requirements
 

@@ -13,6 +13,8 @@ Config: src/config.json (tools, i18n strings, prerequisite)
 Author: Paulo Carinhena (https://github.com/paulocarinhena)
 """
 
+__version__ = "1.1.0"
+
 import json
 import os
 import re
@@ -20,12 +22,14 @@ import shlex
 import subprocess
 import sys
 import threading
+import textwrap
 import time
 import unicodedata
 import urllib.request
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+import shutil
 from shutil import which
 from typing import Callable, Dict, List, Optional, Tuple
 
@@ -95,6 +99,113 @@ class _A:
     BMAGENTA = "\033[95m"
     BCYAN = "\033[96m"
     BWHITE = "\033[97m"
+    GRAY = "\033[90m"
+    BORDER = "\033[90m"
+    ACCENT = "\033[96m"
+
+
+# ─── Theme ────────────────────────────────────────────────────────────────────
+
+
+def _detect_color_depth() -> int:
+    """Return 24 (truecolor), 8 (256 colors), 4 (basic ANSI) or 0 (no color)."""
+    if not _USE_COLOR:
+        return 0
+    env = os.environ
+    if env.get("COLORTERM", "").lower() in ("truecolor", "24bit"):
+        return 24
+    # Windows 10+ consoles with VT processing enabled support 24-bit color.
+    if sys.platform == "win32" or "WT_SESSION" in env or "KITTY_WINDOW_ID" in env:
+        return 24
+    if env.get("TERM_PROGRAM", "") in (
+        "iTerm.app", "WezTerm", "vscode", "ghostty", "Hyper", "Tabby",
+    ):
+        return 24
+    if "256" in env.get("TERM", ""):
+        return 8
+    return 4
+
+
+_COLOR_DEPTH: int = _detect_color_depth()
+
+RGB = Tuple[int, int, int]
+
+# Brand gradient (violet → blue → cyan → mint) used for the banner, titles,
+# progress bars and accents. Mid-luminance so it reads on dark and light themes.
+_GRAD: List[RGB] = [(167, 139, 250), (96, 165, 250), (34, 211, 238), (52, 211, 153)]
+_RGB_BORDER: RGB = (100, 116, 139)
+_RGB_TRACK: RGB = (71, 85, 105)
+_RGB_KEY_FG: RGB = (15, 23, 42)
+
+
+def _rgb_to_256(r: int, g: int, b: int) -> int:
+    """Approximate an RGB color in the xterm-256 palette."""
+    if abs(r - g) < 10 and abs(g - b) < 10:
+        return 232 + max(0, min(23, round((r - 8) / 10)))
+    return 16 + 36 * round(r / 255 * 5) + 6 * round(g / 255 * 5) + round(b / 255 * 5)
+
+
+def _fg(rgb: RGB, fallback: str = "") -> str:
+    if _COLOR_DEPTH == 24:
+        return "\033[38;2;{};{};{}m".format(*rgb)
+    if _COLOR_DEPTH == 8:
+        return "\033[38;5;{}m".format(_rgb_to_256(*rgb))
+    return fallback if _USE_COLOR else ""
+
+
+def _bg(rgb: RGB, fallback: str = "\033[7m") -> str:
+    if _COLOR_DEPTH == 24:
+        return "\033[48;2;{};{};{}m".format(*rgb)
+    if _COLOR_DEPTH == 8:
+        return "\033[48;5;{}m".format(_rgb_to_256(*rgb))
+    return fallback if _USE_COLOR else ""
+
+
+# Re-theme the semantic colors with a softer palette when the terminal allows it.
+if _COLOR_DEPTH >= 8:
+    for _name, _rgb in {
+        "BGREEN": (74, 222, 128),
+        "BRED": (248, 113, 113),
+        "BYELLOW": (251, 191, 36),
+        "BBLUE": (96, 165, 250),
+        "BMAGENTA": (192, 132, 252),
+        "BCYAN": (34, 211, 238),
+        "CYAN": (125, 211, 252),
+        "GRAY": (148, 163, 184),
+        "BORDER": _RGB_BORDER,
+        "ACCENT": (167, 139, 250),
+    }.items():
+        setattr(_A, _name, _fg(_rgb))
+
+
+def _lerp_color(stops: List[RGB], t: float) -> RGB:
+    """Interpolate a color along a multi-stop gradient (t in [0, 1])."""
+    t = max(0.0, min(1.0, t))
+    seg = t * (len(stops) - 1)
+    i = min(int(seg), len(stops) - 2)
+    f = seg - i
+    a, b = stops[i], stops[i + 1]
+    return (
+        int(a[0] + (b[0] - a[0]) * f),
+        int(a[1] + (b[1] - a[1]) * f),
+        int(a[2] + (b[2] - a[2]) * f),
+    )
+
+
+def _gradient(text: str, bold: bool = False, stops: Optional[List[RGB]] = None) -> str:
+    """Color plain *text* with a horizontal gradient (falls back to the accent color)."""
+    if not _USE_COLOR:
+        return text
+    prefix = _A.BOLD if bold else ""
+    if _COLOR_DEPTH < 8:
+        return prefix + _A.BCYAN + text + _A.RESET
+    stops = stops or _GRAD
+    span = max(1, len(text) - 1)
+    out = [prefix]
+    for i, ch in enumerate(text):
+        out.append(ch if ch == " " else _fg(_lerp_color(stops, i / span)) + ch)
+    out.append(_A.RESET)
+    return "".join(out)
 
 
 def _c(code: str, text: str) -> str:
@@ -123,10 +234,6 @@ def _dim(t: str) -> str:
 
 def _bold(t: str) -> str:
     return _c(_A.BOLD, t)
-
-
-def _hi(t: str) -> str:
-    return _c(_A.BMAGENTA, t)
 
 
 def _blue(t: str) -> str:
@@ -172,6 +279,107 @@ def _rjust(s: str, width: int, fill: str = " ") -> str:
     return fill * max(0, width - _vlen(s)) + s
 
 
+def _border(t: str) -> str:
+    return _c(_A.BORDER, t)
+
+
+def _accent(t: str) -> str:
+    return _c(_A.ACCENT + _A.BOLD, t)
+
+
+def _muted(t: str) -> str:
+    return _c(_A.GRAY, t)
+
+
+def _term_width() -> int:
+    try:
+        return os.get_terminal_size().columns
+    except OSError:
+        return 100
+
+
+def _key(label: str) -> str:
+    """Render a keyboard-key style badge, e.g. ` 1 ` on an accent background."""
+    if _COLOR_DEPTH >= 8:
+        return "{}{}{} {} {}".format(
+            _bg(_GRAD[0]), _fg(_RGB_KEY_FG), _A.BOLD, label, _A.RESET
+        )
+    return _bold("[" + label + "]")
+
+
+def _pill(text: str, rgb: RGB) -> str:
+    """Render *text* as a solid colored badge."""
+    if _COLOR_DEPTH >= 8:
+        return "{}{}{} {} {}".format(_bg(rgb), _fg(_RGB_KEY_FG), _A.BOLD, text, _A.RESET)
+    return _bold("[ " + text + " ]")
+
+
+def _rule(width: int = 56) -> str:
+    return "  " + _border("─" * width)
+
+
+_ANSI_TOKEN_RE = re.compile(r"(\033\[[^m]*m)")
+
+
+def _truncate(s: str, width: int) -> str:
+    """Cut *s* to *width* visible columns (ANSI-aware), ending with "…"."""
+    if _vlen(s) <= width:
+        return s
+    out: List[str] = []
+    used = 0
+    for token in _ANSI_TOKEN_RE.split(s):
+        if _ANSI_TOKEN_RE.fullmatch(token):
+            out.append(token)
+            continue
+        for ch in token:
+            w = _vlen(ch)
+            if used + w > width - 1:
+                out.append("…" + (_A.RESET if _USE_COLOR else ""))
+                return "".join(out)
+            out.append(ch)
+            used += w
+    return "".join(out)
+
+
+def _panel(
+    lines: List[Optional[str]], title: str = "", min_width: int = 44
+) -> None:
+    """Print a rounded panel. A ``None`` entry in *lines* draws a divider.
+
+    The panel never exceeds the terminal width; longer lines are truncated.
+    """
+    content_w = max([_vlen(ln) for ln in lines if ln is not None] + [_vlen(title) + 4])
+    inner = max(min_width, content_w + 4)
+    inner = max(20, min(inner, _term_width() - 6))
+    title = _truncate(title, inner - 4)
+    lines = [None if ln is None else _truncate(ln, inner - 3) for ln in lines]
+    if title:
+        head = "─ " + title + " "
+        top = _border("╭") + _border("─ ") + title + " " + _border(
+            "─" * max(0, inner - _vlen(head)) + "╮"
+        )
+    else:
+        top = _border("╭" + "─" * inner + "╮")
+    print("  " + top)
+    for ln in lines:
+        if ln is None:
+            print("  " + _border("├" + "─" * inner + "┤"))
+        else:
+            print("  " + _border("│") + _ljust("  " + ln, inner) + _border("│"))
+    print("  " + _border("╰" + "─" * inner + "╯"))
+
+
+def _spin_frame(i: int) -> str:
+    """Spinner frame *i*, colored with a ping-pong sweep along the brand gradient."""
+    f = _SPINNER[i % len(_SPINNER)]
+    if _COLOR_DEPTH < 8:
+        return _c(_A.BCYAN, f)
+    steps = 16
+    pos = i % (2 * steps)
+    t = (pos if pos < steps else 2 * steps - pos) / steps
+    return _fg(_lerp_color(_GRAD, t)) + f + _A.RESET
+
+
 # ─── Spinner (thread) ─────────────────────────────────────────────────────────
 
 _SPINNER = (
@@ -187,7 +395,7 @@ def _run_spinner(label: str, stop: threading.Event) -> None:
         f = _SPINNER[i % len(_SPINNER)]
         if _USE_COLOR:
             print(
-                "\r  {} {}".format(_c(_A.BCYAN, f), _dim(label + "…")),
+                "\r  {} {}".format(_spin_frame(i), _muted(label + "…")),
                 end="",
                 flush=True,
             )
@@ -240,16 +448,18 @@ def ask_language(config: Dict) -> str:
     i18n = config.get("i18n", {})
     pt = i18n.get("pt-br", {})
 
-    print()
-    print("  {} {}".format(
-        _bold("?"),
-        pt.get("lang_prompt", "Escolha o idioma / Choose language:")
-    ))
-    print("    1. {}".format(pt.get("lang_option_pt", "Português (Brasil)")))
-    print("    2. {}".format(pt.get("lang_option_en", "English")))
+    _panel(
+        [
+            "",
+            "{}  {}".format(_key("1"), pt.get("lang_option_pt", "Português (Brasil)")),
+            "{}  {}".format(_key("2"), pt.get("lang_option_en", "English")),
+            "",
+        ],
+        title=_gradient(pt.get("lang_prompt", "Escolha o idioma / Choose language:"), bold=True),
+    )
 
     while True:
-        raw = input("\n  {} (1/2): ".format(_bold("›"))).strip()
+        raw = input("\n  {} {} ".format(_accent("❯"), _muted("(1/2):"))).strip()
         if raw in ("1", ""):
             _CURRENT_LANG = "pt-br"
             _STRINGS = pt
@@ -401,20 +611,44 @@ _BAR_FILL = "█"
 _BAR_EMPTY = "░"
 
 
+def _bar_width(label: str) -> int:
+    """Bar width that keeps the whole progress line inside the terminal.
+
+    The line is redrawn in place with a carriage return, so it must never wrap.
+    """
+    # indent + spinner + separators + brackets + " 100%" + one spare column
+    return max(8, min(_BAR_W, _term_width() - _vlen(label) - 16))
+
+
 def _render_bar(label: str, percent: int, spinner: Optional[str] = None) -> str:
     p = max(0, min(100, percent))
-    filled = int((p / 100.0) * _BAR_W)
+    bar_w = _bar_width(label)
+    if _COLOR_DEPTH >= 8:
+        # Gradient "━" bar with half-cell precision on a muted track.
+        cells = p / 100.0 * bar_w
+        full = int(cells)
+        half = cells - full >= 0.5 and full < bar_w
+        last = max(1, bar_w - 1)
+        parts = [_fg(_lerp_color(_GRAD, i / last)) + "━" for i in range(full)]
+        if half:
+            parts.append(_fg(_lerp_color(_GRAD, full / last)) + "╸")
+        rest = bar_w - full - (1 if half else 0)
+        parts.append(_fg(_RGB_TRACK) + "━" * rest + _A.RESET)
+        bar = "".join(parts)
+        pct = _accent("{:3d}%".format(p))
+        lead = (spinner + " ") if spinner else ""
+        return "\r  {}{} {} {}".format(lead, label, bar, pct)
+    filled = int((p / 100.0) * bar_w)
     if _USE_COLOR:
         bar = _c(_A.BGREEN, _BAR_FILL * filled) + _c(
-            _A.DIM, _BAR_EMPTY * (_BAR_W - filled)
+            _A.DIM, _BAR_EMPTY * (bar_w - filled)
         )
         pct = _bold("{:3d}%".format(p))
     else:
-        bar = "#" * filled + "-" * (_BAR_W - filled)
+        bar = "#" * filled + "-" * (bar_w - filled)
         pct = "{:3d}%".format(p)
     if spinner:
-        spin = _c(_A.BCYAN, spinner) if _USE_COLOR else spinner
-        return "\r  {} {} [{}] {}".format(spin, label, bar, pct)
+        return "\r  {} {} [{}] {}".format(spinner, label, bar, pct)
     return "\r  {} [{}] {}".format(label, bar, pct)
 
 
@@ -472,18 +706,18 @@ def run_command_live(
     stop_ev.set()
     spin_thread.join()
 
-    print("  {} {} {}".format(_info("▶"), label, _dim(_t("live_output"))))
+    print("  {} {} {}".format(_accent("▶"), _bold(label), _muted(_t("live_output"))))
     print(
         "  {} {}".format(
             _dim("ℹ"),
             _dim(_t("live_hint")),
         )
     )
-    print(_dim("  " + "─" * 52))
+    print(_rule())
 
     rc = process.wait()
 
-    print(_dim("  " + "─" * 52))
+    print(_rule())
     # 130 = SIGINT (Ctrl+C): user exited the interactive session the installer launched.
     # The binary is already installed — treat this as success.
     if rc == 130:
@@ -576,20 +810,19 @@ def run_command_progress(
                     last_percent = max(last_percent, current)
                     print(_render_bar(label, last_percent), end="", flush=True)
             else:
-                f = (
-                    _SPINNER[spin_idx % len(_SPINNER)]
-                    if _USE_COLOR
-                    else "|/-\\"[spin_idx % 4]
-                )
                 spin_idx += 1
                 if _USE_COLOR:
                     print(
-                        "\r  {} {}".format(_c(_A.BCYAN, f), _dim(label + "…")),
+                        "\r  {} {}".format(_spin_frame(spin_idx), _muted(label + "…")),
                         end="",
                         flush=True,
                     )
                 else:
-                    print("\r  [{}] {}...".format(f, label), end="", flush=True)
+                    print(
+                        "\r  [{}] {}...".format(_SPINNER[spin_idx % len(_SPINNER)], label),
+                        end="",
+                        flush=True,
+                    )
 
     # Ensure spinner is stopped even if process had no output at all
     if not early_spinner_stopped:
@@ -1591,36 +1824,257 @@ def scan_latest_versions(
     return results
 
 
+# ─── Self-update ──────────────────────────────────────────────────────────────
+
+_REPO_RAW_URL = "https://raw.githubusercontent.com/paulocarinhena/RivetRook/main/src/"
+_VERSION_ASSIGN_RE = re.compile(r"""^__version__\s*=\s*["']([^"']+)["']""", re.M)
+
+
+def _rivetrook_git_root(script_path: Path) -> Optional[Path]:
+    """Return the repo root when the script lives in a RivetRook git clone.
+
+    Only the expected layout (``<root>/src/RivetRook.py``) whose ``origin``
+    points at the RivetRook repository qualifies, so an unrelated parent
+    repository (e.g. a dotfiles repo in $HOME) is never pulled.
+    """
+    root = script_path.parent.parent
+    if not (root / ".git").exists() or not which("git"):
+        return None
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(root), "remote", "get-url", "origin"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            creationflags=_WIN_NO_WINDOW,
+        )
+    except Exception:
+        return None
+    if proc.returncode != 0 or "paulocarinhena/rivetrook" not in proc.stdout.lower():
+        return None
+    return root
+
+
+def _local_script_version(script_path: Path) -> Optional[str]:
+    try:
+        m = _VERSION_ASSIGN_RE.search(script_path.read_text(encoding="utf-8"))
+    except OSError:
+        return None
+    return m.group(1) if m else None
+
+
+def check_self_update() -> Optional[Tuple[str, str]]:
+    """Fetch the published script and return (remote_version, source) if newer.
+
+    Never raises: any network or parse failure simply means "no update".
+    """
+    if os.environ.get("RIVETROOK_NO_UPDATE"):
+        return None
+    try:
+        source = _http_get(_REPO_RAW_URL + "RivetRook.py")
+    except Exception:
+        return None
+    m = _VERSION_ASSIGN_RE.search(source)
+    if not m or not is_update_available(__version__, m.group(1)):
+        return None
+    return m.group(1), source
+
+
+def _write_files_atomically(files: Dict[Path, str]) -> None:
+    """Write every file to a temp sibling first, then swap them all in.
+
+    Swapping only after all temp files exist keeps script and config in sync;
+    file permissions (e.g. the executable bit) are preserved.
+    """
+    staged: List[Tuple[Path, Path]] = []
+    try:
+        for target, text in files.items():
+            tmp = target.with_name(target.name + ".tmp")
+            with open(str(tmp), "w", encoding="utf-8", newline="\n") as fh:
+                fh.write(text)
+            if target.exists():
+                shutil.copymode(str(target), str(tmp))
+            staged.append((tmp, target))
+        for tmp, target in staged:
+            os.replace(str(tmp), str(target))
+    finally:
+        for tmp, _ in staged:
+            if tmp.exists():
+                try:
+                    tmp.unlink()
+                except OSError:
+                    pass
+
+
+def apply_self_update(remote_version: str, source: str, update_config: bool) -> List[str]:
+    """Update RivetRook in place: ``git pull`` in a clone, file download otherwise.
+
+    Returns an empty list on success, or error detail lines on failure.
+    """
+    script_path = Path(__file__).resolve()
+    repo_root = _rivetrook_git_root(script_path)
+    if repo_root:
+        try:
+            proc = subprocess.run(
+                ["git", "-C", str(repo_root), "pull", "--ff-only"],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                creationflags=_WIN_NO_WINDOW,
+            )
+        except Exception as exc:
+            return [str(exc)]
+        if proc.returncode != 0:
+            detail = (proc.stderr or proc.stdout).strip().splitlines()
+            return ["git pull --ff-only"] + detail[-4:]
+        # A pull on a branch other than main can succeed without bringing the
+        # new version; report it instead of restarting into the same prompt.
+        local = _local_script_version(script_path)
+        if is_update_available(local, remote_version):
+            return [_t("self_update_git_stale", remote_version)]
+        return []
+
+    # Plain copy: download and validate everything before touching any file.
+    files: Dict[Path, str] = {script_path: source}
+    try:
+        compile(source, str(script_path), "exec")
+        if update_config:
+            cfg_text = _http_get(_REPO_RAW_URL + "config.json")
+            json.loads(cfg_text)
+            files[script_path.parent / "config.json"] = cfg_text
+        _write_files_atomically(files)
+    except Exception as exc:
+        return [str(exc)]
+    return []
+
+
+def restart_self() -> None:
+    """Relaunch the (updated) script with the same arguments and exit."""
+    args = [sys.executable, str(Path(__file__).resolve())] + sys.argv[1:]
+    sys.stdout.flush()
+    if sys.platform == "win32":
+        # os.execv on Windows detaches from the console; run as a child instead.
+        sys.exit(subprocess.call(args))
+    os.execv(sys.executable, args)
+
+
+def offer_self_update(update_thread: threading.Thread, result: List, custom_config: bool) -> None:
+    """Prompt the user when the background check found a newer RivetRook."""
+    if update_thread.is_alive():
+        stop = threading.Event()
+        spin = threading.Thread(
+            target=_run_spinner, args=(_t("self_update_checking"), stop), daemon=True
+        )
+        spin.start()
+        update_thread.join(timeout=_LATEST_HTTP_TIMEOUT + 2)
+        stop.set()
+        spin.join()
+    if not result or result[0] is None:
+        return
+    remote_version, source = result[0]
+    versions = "{}  {}  {}".format(
+        _pill("v" + __version__, _RGB_BORDER), _accent("→"), _pill("v" + remote_version, _GRAD[3])
+    )
+    wrap_w = max(30, min(64, _term_width() - 12))
+    message = [_muted(ln) for ln in textwrap.wrap(_t("self_update_available"), wrap_w)]
+    print()
+    _panel(
+        ["", versions, ""] + message + [""],
+        title=_gradient("✦ " + _t("self_update_title"), bold=True),
+    )
+    if not ask_yes_no(_t("self_update_ask"), default_yes=True):
+        return
+
+    stop = threading.Event()
+    spin = threading.Thread(
+        target=_run_spinner, args=(_t("self_update_downloading"), stop), daemon=True
+    )
+    spin.start()
+    try:
+        errors = apply_self_update(remote_version, source, update_config=not custom_config)
+    finally:
+        stop.set()
+        spin.join()
+    if errors:
+        print("  {} {}".format(_err("✘"), _t("self_update_failed", errors[0])))
+        for ln in errors[1:]:
+            print("    {}".format(_dim(ln)))
+        return
+    print("  {} {}".format(_ok("✔"), _t("self_update_done", remote_version)))
+    restart_self()
+
+
 # ─── UI Primitives ────────────────────────────────────────────────────────────
 
 
-def print_banner() -> None:
+# "ANSI Shadow" block font, only the glyphs needed for the logo.
+_LOGO_FONT: Dict[str, List[str]] = {
+    "R": ["██████╗ ", "██╔══██╗", "██████╔╝", "██╔══██╗", "██║  ██║", "╚═╝  ╚═╝"],
+    "I": ["██╗", "██║", "██║", "██║", "██║", "╚═╝"],
+    "V": ["██╗   ██╗", "██║   ██║", "██║   ██║", "╚██╗ ██╔╝", " ╚████╔╝ ", "  ╚═══╝  "],
+    "E": ["███████╗", "██╔════╝", "█████╗  ", "██╔══╝  ", "███████╗", "╚══════╝"],
+    "T": ["████████╗", "╚══██╔══╝", "   ██║   ", "   ██║   ", "   ██║   ", "   ╚═╝   "],
+    "O": [" ██████╗ ", "██╔═══██╗", "██║   ██║", "██║   ██║", "╚██████╔╝", " ╚═════╝ "],
+    "K": ["██╗  ██╗", "██║ ██╔╝", "█████╔╝ ", "██╔═██╗ ", "██║  ██╗", "╚═╝  ╚═╝"],
+}
+
+
+def _logo_rows(word: str) -> List[str]:
+    rows = [""] * 6
+    for ch in word:
+        glyph = _LOGO_FONT[ch]
+        w = max(len(r) for r in glyph)
+        for i in range(6):
+            rows[i] += glyph[i].ljust(w)
+    return rows
+
+
+def _paint_logo_row(row: str, row_idx: int, span: int) -> str:
+    """Diagonal gradient: solid blocks are bright, the shadow strokes darker."""
+    if _COLOR_DEPTH < 8:
+        return _c(_A.BCYAN + _A.BOLD, row)
+    out = []
+    for col, ch in enumerate(row):
+        if ch == " ":
+            out.append(ch)
+            continue
+        r, g, b = _lerp_color(_GRAD, (col + row_idx * 3) / (span + 15))
+        if ch != "█":
+            r, g, b = int(r * 0.5), int(g * 0.5), int(b * 0.5)
+        out.append(_fg((r, g, b)) + ch)
+    out.append(_A.RESET)
+    return "".join(out)
+
+
+def print_banner(subtitle: str = "") -> None:
+    """Print the logo; *subtitle* is the localized tagline (omitted before i18n loads)."""
     print()
     title = "✦ RivetRook"
-    subtitle = "AI toolchain manager"
-    width = max(len(title), len(subtitle)) + 4
+    version = "v" + __version__
+    rows = _logo_rows("RIVETROOK")
+    span = len(rows[0])
 
-    top = "╭" + "─" * width + "╮"
-    mid1 = "│ " + title.ljust(width - 2) + " │"
-    mid2 = "│ " + subtitle.ljust(width - 2) + " │"
-    bot = "╰" + "─" * width + "╯"
-
-    if _USE_COLOR:
-        print("  " + _c(_A.BCYAN, top))
-        print("  " + _c(_A.BWHITE + _A.BOLD, mid1))
-        print("  " + _c(_A.DIM, mid2))
-        print("  " + _c(_A.BCYAN, bot))
+    if _term_width() >= span + 6:
+        for i, row in enumerate(rows):
+            print("  " + _paint_logo_row(row, i, span))
+        parts = [p for p in (subtitle, version, "Windows · macOS · Linux") if p]
+        tagline = "✦ " + "  ·  ".join(parts)
+        pad = max(0, (span - _vlen(tagline)) // 2)
+        print()
+        print("  " + " " * pad + _gradient(tagline))
     else:
-        print("  " + top)
-        print("  " + mid1)
-        print("  " + mid2)
-        print("  " + bot)
+        sub = "{} · {}".format(subtitle, version) if subtitle else version
+        width = max(_vlen(title), _vlen(sub)) + 4
+        print("  " + _border("╭" + "─" * width + "╮"))
+        print("  " + _border("│ ") + _gradient(_ljust(title, width - 2), bold=True) + _border(" │"))
+        print("  " + _border("│ ") + _muted(_ljust(sub, width - 2)) + _border(" │"))
+        print("  " + _border("╰" + "─" * width + "╯"))
     print()
 
 
 def print_section(title: str) -> None:
     line = "─" * max(18, len(title) + 6)
-    print("\n  {} {}".format(_bold(title), _dim(line)))
+    print("\n  {} {} {}".format(_accent("◆"), _gradient(title, bold=True), _border(line)))
 
 
 def _exec_shell_reload(os_name: str) -> None:
@@ -1648,7 +2102,7 @@ def ask_yes_no(prompt: str, default_yes: bool = True) -> bool:
     else:
         suffix = "[{}/{}]".format(_dim(y_short.lower()) if _USE_COLOR else y_short.lower(), no)
     ans = (
-        input("\n  {} {} {} ".format(_bold("?"), prompt, _dim(suffix))).strip().lower()
+        input("\n  {} {} {} ".format(_accent("?"), prompt, _dim(suffix))).strip().lower()
     )
     if ans == "":
         return default_yes
@@ -1751,8 +2205,8 @@ def _status_cell(version: Optional[str], access: str) -> Tuple[str, str]:
     if version:
         if access == "profile":
             return _warn("◐"), _warn(_t("shell_profile"))
-        return _ok("✓"), _ok(_t("status_installed"))
-    return _err("✗"), _err(_t("status_not_installed"))
+        return _ok("●"), _ok(_t("status_installed"))
+    return _muted("○"), _muted(_t("status_not_installed"))
 
 
 def _tool_row(
@@ -1766,6 +2220,8 @@ def _tool_row(
     stat_w: int,
     ver_w: int,
     num_w: int,
+    show_author: bool = True,
+    compact_status: bool = False,
 ) -> None:
     access = tool_access_state(block, os_name)
     icon, status_label = _status_cell(version, access)
@@ -1777,12 +2233,13 @@ def _tool_row(
         key_badge = ""
 
     author = block.get("author", "")
-    num_str = _dim(_rjust(str(idx), num_w))
-    name_lbl = _hi(name) if version else name
-    if author:
-        name_lbl = "{} {}".format(name_lbl, _dim("· " + author))
-    name_str = _ljust(name_lbl, name_w)
-    stat_str = _ljust(icon + " " + status_label + key_badge, stat_w + 2)
+    num_str = _c(_A.ACCENT, _rjust(str(idx), num_w))
+    name_lbl = _bold(name) if version else name
+    if author and show_author:
+        name_lbl = "{} {}".format(name_lbl, _muted("· " + author))
+    name_str = _ljust(_truncate(name_lbl, name_w), name_w)
+    status_txt = icon + key_badge if compact_status else icon + " " + status_label + key_badge
+    stat_str = _ljust(status_txt, stat_w + 2)
 
     outdated = is_update_available(version, latest)
     if outdated:
@@ -1792,9 +2249,15 @@ def _tool_row(
     if len(version_txt) > ver_w:
         version_txt = version_txt[: max(1, ver_w - 1)] + "…"
     ver_str = _ljust(version_txt, ver_w)
-    ver_str = _warn(ver_str) if outdated else _dim(ver_str)
+    if outdated:
+        ver_str = _c(_A.BYELLOW + _A.BOLD, ver_str)
+    elif version:
+        ver_str = _c(_A.CYAN, ver_str)
+    else:
+        ver_str = _border(ver_str)
 
-    print("  │ {} │ {} │ {} │ {} │".format(num_str, name_str, stat_str, ver_str))
+    v = _border("│")
+    print("  {v} {} {v} {} {v} {} {v} {} {v}".format(num_str, name_str, stat_str, ver_str, v=v))
 
 
 def _table_hline(left: str, mid: str, right: str, fill: str, col_widths: List[int]) -> str:
@@ -1804,23 +2267,25 @@ def _table_hline(left: str, mid: str, right: str, fill: str, col_widths: List[in
             parts.append(mid)
         parts.append(fill * (w + 2))
     parts.append(right)
-    return "  " + "".join(parts)
+    return "  " + _border("".join(parts))
 
 
-def _section_label(label: str, col_widths: List[int]) -> None:
-    total_inner = sum(w + 2 for w in col_widths) + len(col_widths) - 1
-    styled = _c(_A.BBLUE + _A.BOLD, " ◈ " + label)
-    styled_len = _vlen(styled)
-    fill_len = max(0, total_inner - styled_len - 1)
+def _section_label(label: str, summary: str, col_widths: List[int]) -> None:
+    total_inner = sum(w + 2 for w in col_widths) + len(col_widths) + 1
+    styled = "{} {}".format(_accent("◆"), _gradient(label, bold=True))
+    if summary:
+        styled += "  " + summary
+    fill_len = max(0, total_inner - _vlen(styled) - 1)
     print()
-    print("  {}{}".format(styled, _dim(" " + "─" * fill_len)))
+    print("  {} {}".format(styled, _border("─" * fill_len)))
 
 
 def _section_header(col_widths: List[int]) -> None:
     headers = [_t("col_num"), _t("col_tool"), _t("col_status"), _t("col_version")]
-    styled = [_ljust(_c(_A.BOLD + _A.CYAN, h), w) for h, w in zip(headers, col_widths)]
-    print(_table_hline("┌", "┬", "┐", "─", col_widths))
-    print("  │ {} │ {} │ {} │ {} │".format(*styled))
+    styled = [_ljust(_c(_A.BOLD + _A.GRAY, h.upper()), w) for h, w in zip(headers, col_widths)]
+    v = _border("│")
+    print(_table_hline("╭", "┬", "╮", "─", col_widths))
+    print("  {v} {} {v} {} {v} {} {v} {} {v}".format(*styled, v=v))
     print(_table_hline("├", "┼", "┤", "─", col_widths))
 
 
@@ -1837,26 +2302,58 @@ def print_tools_table(
     computed dynamically to fit the longest name.
     """
     all_tools = {**tools, **ides}
-    name_labels = []
-    for n, b in all_tools.items():
-        author = b.get("author", "")
-        if author:
-            name_labels.append("{} · {}".format(n, author))
-        else:
-            name_labels.append(n)
-    name_w = max(len(lbl) for lbl in name_labels) + 1
     header_labels = [_t("col_num"), _t("col_tool"), _t("col_status"), _t("col_version")]
-    name_w = max(name_w, len(header_labels[1]))
-    stat_w = max(16, len(header_labels[2]))
+
+    def _name_width(with_author: bool) -> int:
+        labels = [
+            "{} · {}".format(n, b["author"]) if with_author and b.get("author") else n
+            for n, b in all_tools.items()
+        ]
+        return max(max(_vlen(lbl) for lbl in labels) + 1, _vlen(header_labels[1]))
+
+    # Fit the table to the terminal: borders + padding take 15 columns and the
+    # last column is left free to avoid auto-wrap. Degrade progressively:
+    # narrower version column, then no author, then icon-only status.
+    budget = _term_width() - 16
+    num_w = max(3, _vlen(header_labels[0]))
+    show_author, compact_status = True, False
+    name_w = _name_width(True)
+    stat_w = max(16, _vlen(header_labels[2]))
+    ver_w = max(36, _vlen(header_labels[3]))
+
+    def _total() -> int:
+        return num_w + name_w + stat_w + 2 + ver_w
+
+    if _total() > budget:
+        ver_w = max(16, budget - (_total() - ver_w))
+    if _total() > budget:
+        show_author = False
+        name_w = _name_width(False)
+    if _total() > budget:
+        ver_w = max(10, budget - (_total() - ver_w))
+    if _total() > budget:
+        compact_status = True
+        stat_w = max(1, _vlen(header_labels[2]) - 2)
+    # Hand any room freed by the steps above back to the version column.
+    ver_w = max(_vlen(header_labels[3]), min(36, budget - (_total() - ver_w)))
     stat_col_w = stat_w + 2
-    ver_w = max(36, len(header_labels[3]))
-    num_w = max(3, len(header_labels[0]))
     col_widths = [num_w, name_w, stat_col_w, ver_w]
+
+    def _summary(names: List[str]) -> str:
+        installed = sum(1 for n in names if version_map.get(n))
+        parts = [_muted(_t("summary_installed", installed, len(names)))]
+        updates = sum(
+            1 for n in names
+            if is_update_available(version_map.get(n), (latest_map or {}).get(n))
+        )
+        if updates:
+            parts.append(_warn(_t("summary_updates", updates)))
+        return _border(" · ").join(parts)
 
     def _render_section(
         label: str, indexed_names: List[Tuple[int, str]], src: Dict
     ) -> None:
-        _section_label(label, col_widths)
+        _section_label(label, _summary([n for _, n in indexed_names]), col_widths)
         _section_header(col_widths)
         for idx, name in indexed_names:
             _tool_row(
@@ -1870,8 +2367,10 @@ def print_tools_table(
                 stat_w,
                 ver_w,
                 num_w,
+                show_author,
+                compact_status,
             )
-        print(_table_hline("└", "┴", "┘", "─", col_widths))
+        print(_table_hline("╰", "┴", "╯", "─", col_widths))
 
     # CLI Tools section
     cli_names = list(tools.keys())
@@ -1888,12 +2387,22 @@ def print_tools_table(
     # Legend
     print()
     legend_parts = [
-        "{} {}".format(_ok("✓"), _t("legend_installed")),
-        "{} {}".format(_warn("◐"), _t("legend_profile")),
-        "{} {}".format(_err("✗"), _t("legend_not_installed")),
-        "{} {}".format(_warn("↑"), _t("legend_update_available")),
+        "{} {}".format(_ok("●"), _muted(_t("legend_installed"))),
+        "{} {}".format(_warn("◐"), _muted(_t("legend_profile"))),
+        "{} {}".format(_muted("○"), _muted(_t("legend_not_installed"))),
+        "{} {}".format(_warn("↑"), _muted(_t("legend_update_available"))),
+        "{} {}".format(_ok("⚷"), _muted(_t("legend_api_key"))),
     ]
-    print("  " + "   ".join(legend_parts))
+    # Flow the legend over several lines when the terminal is narrow.
+    max_w = max(20, _term_width() - 4)
+    legend_lines: List[str] = []
+    for part in legend_parts:
+        if legend_lines and _vlen(legend_lines[-1]) + 3 + _vlen(part) <= max_w:
+            legend_lines[-1] += "   " + part
+        else:
+            legend_lines.append(part)
+    for ln in legend_lines:
+        print("  " + ln)
     print()
 
 
@@ -1977,7 +2486,7 @@ def choose_tool(names: List[str]) -> Optional[List[str]]:
     while True:
         raw = input(
             "  {} {} {} ".format(
-                _bold("❯"), _t("choose_tool"), _dim(_t("enter_to_exit"))
+                _accent("❯"), _bold(_t("choose_tool")), _muted(_t("enter_to_exit"))
             )
         ).strip()
 
@@ -2114,52 +2623,57 @@ def manage_tools(config: Dict, os_name: str, linux_family: Optional[str]) -> Non
 
         return None
 
+    def _action_lines(upgrade_hint: str = "") -> List[str]:
+        return [
+            "{}  {}  {}".format(_key("1"), _ok("↓"), _t("action_install")),
+            "{}  {}  {}{}".format(_key("2"), _blue("↑"), _t("action_upgrade"), upgrade_hint),
+            "{}  {}  {}".format(_key("3"), _err("✕"), _t("action_uninstall")),
+        ]
+
+    def _ask_action(valid: Dict[str, str], hint: str) -> Optional[str]:
+        while True:
+            raw = input(
+                "\n  {} {} {} ".format(_accent("❯"), _bold(_t("action_label")), _muted(hint))
+            ).strip()
+            if not raw:
+                return None
+            if raw in valid:
+                return valid[raw]
+            print("  {} {}".format(_warn("⚠"), _t("invalid_option")))
+
     def _choose_action(
         selected: str, current_version: Optional[str], cfg_block: Optional[Dict]
     ) -> Optional[str]:
         tool_block = all_tools[selected]
         author = tool_block.get("author", "")
         description = _desc(tool_block)
-        version_str = current_version or _t("not_installed_label")
         latest = latest_map.get(selected)
         upgrade_hint = ""
         if is_update_available(current_version, latest):
-            upgrade_hint = " " + _warn("→ " + latest)
+            upgrade_hint = "  " + _pill("→ " + latest, (251, 191, 36))
 
-        line1 = "{} {}".format(_bold(selected), _dim(version_str))
-        content_w = _vlen(line1)
-        if author or description:
-            parts = []
-            if author:
-                parts.append(author)
-            if description:
-                parts.append(description)
-            info_line = _dim(" — ".join(parts))
-            content_w = max(content_w, _vlen(info_line))
+        if current_version:
+            status = "{} {}".format(_ok("●"), _c(_A.CYAN, current_version))
         else:
-            info_line = ""
-
-        box_w = max(content_w + 4, 40)
-
-        print()
-        print("  ╭" + "─" * box_w + "╮")
-        print("  │" + _ljust(" " + line1, box_w) + "│")
-        if info_line:
-            print("  │" + _ljust(" " + info_line, box_w) + "│")
-        print("  ╰" + "─" * box_w + "╯")
-
-        print()
-        print("  {} {}  {}".format(_ok("↓"), _bold("1."), _t("action_install")))
-        print("  {} {}  {}{}".format(_blue("↑"), _bold("2."), _t("action_upgrade"), upgrade_hint))
-        print("  {} {}  {}".format(_err("✕"), _bold("3."), _t("action_uninstall")))
+            status = "{} {}".format(_muted("○"), _muted(_t("not_installed_label")))
+        meta = [status]
+        if author:
+            meta.append(_muted(author))
+        lines: List[Optional[str]] = ["", _border(" · ").join(meta)]
+        if description:
+            wrap_w = max(30, min(64, _term_width() - 12))
+            for chunk in textwrap.wrap(description, wrap_w):
+                lines.append(_dim(chunk))
+        lines += ["", None, ""]
+        lines += _action_lines(upgrade_hint)
 
         if cfg_block:
             key_ok = _api_key_configured(cfg_block)
             key_label = _t("key_configured") if key_ok else _t("key_not_configured")
             key_icon = _ok("⚷") if key_ok else _warn("⚷")
-            print(
-                "  {} {}  {} {}".format(
-                    key_icon, _bold("4."), _t("configure_api_key"), _dim("(" + key_label + ")")
+            lines.append(
+                "{}  {}  {} {}".format(
+                    _key("4"), key_icon, _t("configure_api_key"), _muted("(" + key_label + ")")
                 )
             )
             valid = {"1": "install", "2": "upgrade", "3": "uninstall", "4": "configure"}
@@ -2167,34 +2681,34 @@ def manage_tools(config: Dict, os_name: str, linux_family: Optional[str]) -> Non
         else:
             valid = {"1": "install", "2": "upgrade", "3": "uninstall"}
             hint = _t("action_hint_3")
+        lines.append("")
 
-        while True:
-            raw = input("\n  {} {} {} ".format(_bold("▸"), _t("action_label"), _dim(hint))).strip()
-            if not raw:
-                return None
-            if raw in valid:
-                return valid[raw]
-            print("  {} {}".format(_warn("⚠"), _t("invalid_option")))
+        print()
+        _panel(lines, title=_gradient(selected, bold=True), min_width=48)
+        return _ask_action(valid, hint)
 
     def _choose_action_multi(selections: List[str]) -> Optional[str]:
         """Ask a single action to apply to multiple tools (configure excluded)."""
-        print(
-            "\n  {} {}".format(
-                _info("ℹ"), _t("multi_choose_action", len(selections))
-            )
+        # Flow the selected-tool chips over as many lines as the terminal needs.
+        max_w = max(20, min(64, _term_width() - 12))
+        chip_lines: List[str] = []
+        for chip in (_pill(s, _GRAD[2]) for s in selections):
+            if chip_lines and _vlen(chip_lines[-1]) + 2 + _vlen(chip) <= max_w:
+                chip_lines[-1] += "  " + chip
+            else:
+                chip_lines.append(chip)
+        lines: List[Optional[str]] = [""] + chip_lines + ["", None, ""]
+        lines += _action_lines()
+        lines.append("")
+        print()
+        _panel(
+            lines,
+            title=_gradient(_t("multi_choose_action", len(selections)), bold=True),
+            min_width=48,
         )
-        print("  {} {}  {}".format(_ok("↓"), _bold("1."), _t("action_install")))
-        print("  {} {}  {}".format(_blue("↑"), _bold("2."), _t("action_upgrade")))
-        print("  {} {}  {}".format(_err("✕"), _bold("3."), _t("action_uninstall")))
-        valid = {"1": "install", "2": "upgrade", "3": "uninstall"}
-        hint = _t("multi_action_hint_3")
-        while True:
-            raw = input("\n  {} {} {} ".format(_bold("▸"), _t("action_label"), _dim(hint))).strip()
-            if not raw:
-                return None
-            if raw in valid:
-                return valid[raw]
-            print("  {} {}".format(_warn("⚠"), _t("invalid_option")))
+        return _ask_action(
+            {"1": "install", "2": "upgrade", "3": "uninstall"}, _t("multi_action_hint_3")
+        )
 
     def _execute_action(selected: str, action_key: str) -> None:
         """Execute action_key for a single tool. Mutates _pending_reload as needed."""
@@ -2398,7 +2912,7 @@ def manage_tools(config: Dict, os_name: str, linux_family: Optional[str]) -> Non
         def _scan_ticker() -> None:
             i = 0
             while not scan_stop.is_set():
-                frame = _SPINNER[i % len(_SPINNER)]
+                frame = _spin_frame(i)
                 print(
                     _render_bar(scan_label, scan_percent[0], spinner=frame),
                     end="",
@@ -2416,12 +2930,12 @@ def manage_tools(config: Dict, os_name: str, linux_family: Optional[str]) -> Non
         ticker.join()
         # Final frame at 100% then clear the line before the table.
         print(
-            _render_bar(scan_label, 100, spinner=_SPINNER[0]),
+            _render_bar(scan_label, 100, spinner=_spin_frame(0)),
             end="",
             flush=True,
         )
         print(
-            "\r" + " " * (_vlen(scan_label) + _BAR_W + 16) + "\r",
+            "\r" + " " * (_term_width() - 1) + "\r",
             end="",
             flush=True,
         )
@@ -2546,8 +3060,20 @@ def main() -> None:
     script_dir = Path(__file__).resolve().parent
     config_path = Path(sys.argv[1]) if len(sys.argv) > 1 else script_dir / "config.json"
     config = load_config(str(config_path))
+
+    # Check GitHub for a newer RivetRook while the user picks the language.
+    update_result: List = []
+    update_thread = threading.Thread(
+        target=lambda: update_result.append(check_self_update()), daemon=True
+    )
+    update_thread.start()
+
     print_banner()
     ask_language(config)
+    # Redraw the header with the tagline in the chosen language.
+    os.system("cls" if sys.platform == "win32" else "clear")
+    print_banner(_t("tagline"))
+    offer_self_update(update_thread, update_result, custom_config=len(sys.argv) > 1)
     os_name = detect_os()
     linux_family = detect_linux_family() if os_name == "linux" else None
 
@@ -2555,7 +3081,11 @@ def main() -> None:
     persisted_paths = persist_user_bin_path(os_name)
 
     sys_label = "{} ({})".format(os_name, linux_family) if linux_family else os_name
-    os_badge = "{} {}".format(_os_icon(os_name), _bold(sys_label))
+    py_ver = "Python {}.{}".format(*sys.version_info[:2])
+    os_badge = "{} {} {}".format(
+        _os_icon(os_name), _pill(sys_label, _GRAD[1]), _pill(py_ver, _GRAD[3])
+    )
+    print()
     print("  {}".format(_t("system_label", os_badge)))
 
     if added_paths:
@@ -2575,7 +3105,7 @@ def main() -> None:
 
     manage_tools(config, os_name, linux_family)
 
-    print("\n  {} {}\n".format(_ok("✔"), _t("completed")))
+    print("\n  {}\n".format(_gradient("✦ " + _t("completed"), bold=True)))
 
     # Always reload the shell at exit when an install touched the PATH —
     # guarantees binaries are immediately usable without manual action.

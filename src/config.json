@@ -125,7 +125,19 @@
       "legend_installed": "instalado",
       "legend_profile": "perfil de shell",
       "legend_not_installed": "não instalado",
-      "legend_update_available": "atualização disponível"
+      "legend_update_available": "atualização disponível",
+      "legend_api_key": "chave de API",
+      "summary_installed": "{}/{} instaladas",
+      "summary_updates": "{} com atualização",
+      "self_update_title": "Nova versão do RivetRook",
+      "self_update_available": "Uma nova versão do RivetRook está disponível no GitHub.",
+      "self_update_ask": "Atualizar o RivetRook agora?",
+      "self_update_downloading": "Atualizando o RivetRook",
+      "self_update_done": "RivetRook atualizado para v{}. Reiniciando…",
+      "self_update_failed": "Falha ao atualizar o RivetRook: {}",
+      "self_update_checking": "Procurando atualizações do RivetRook",
+      "self_update_git_stale": "o clone local não recebeu a v{} (a branch atual é a main?)",
+      "tagline": "Gerenciador de ferramentas de IA"
     },
     "en": {
       "lang_prompt": "Escolha o idioma / Choose language:",
@@ -252,7 +264,19 @@
       "legend_installed": "installed",
       "legend_profile": "shell profile",
       "legend_not_installed": "not installed",
-      "legend_update_available": "update available"
+      "legend_update_available": "update available",
+      "legend_api_key": "API key",
+      "summary_installed": "{}/{} installed",
+      "summary_updates": "{} with updates",
+      "self_update_title": "New RivetRook version",
+      "self_update_available": "A new version of RivetRook is available on GitHub.",
+      "self_update_ask": "Update RivetRook now?",
+      "self_update_downloading": "Updating RivetRook",
+      "self_update_done": "RivetRook updated to v{}. Restarting…",
+      "self_update_failed": "Failed to update RivetRook: {}",
+      "self_update_checking": "Checking for RivetRook updates",
+      "self_update_git_stale": "the local clone did not receive v{} (is the current branch main?)",
+      "tagline": "AI toolchain manager"
     }
   },
   "prerequisite": {
