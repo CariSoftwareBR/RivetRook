@@ -22,6 +22,7 @@ import sys
 import threading
 import time
 import unicodedata
+import urllib.request
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -1432,6 +1433,164 @@ def scan_all_versions(
     return results
 
 
+# ─── Latest Version Lookup ────────────────────────────────────────────────────
+
+LatestMap = Dict[str, Optional[str]]
+
+_LATEST_HTTP_TIMEOUT = 6
+_VERSION_NUM_RE = re.compile(r"\d+(?:\.\d+)+")
+
+
+def _strip_pkg_version(spec: str) -> str:
+    """Strip a version/tag suffix from an npm/bun package spec."""
+    spec = spec.strip()
+    if not spec:
+        return spec
+    # Scoped package: @scope/name@version -> @scope/name
+    if spec.startswith("@"):
+        at = spec.rfind("@")
+        if at > 0:
+            return spec[:at]
+        return spec
+    # Unscoped package: name@version -> name
+    return spec.split("@", 1)[0]
+
+
+def _http_get(url: str) -> str:
+    req = urllib.request.Request(
+        url, headers={"User-Agent": "RivetRook", "Accept": "application/json"}
+    )
+    with urllib.request.urlopen(req, timeout=_LATEST_HTTP_TIMEOUT) as resp:
+        return resp.read().decode("utf-8", errors="replace")
+
+
+def latest_version_source(
+    tool_block: Dict, os_name: str, linux_family: Optional[str]
+) -> Optional[Dict]:
+    """Return the registry used to look up the newest release of a tool.
+
+    An explicit ``latest`` block in config wins (``npm``, ``pypi``,
+    ``brew_cask``, ``brew_formula``, ``github`` or ``url`` + ``regex``).
+    Otherwise the source is inferred from the platform install command for
+    npm, bun and Homebrew installs.
+    """
+    explicit = tool_block.get("latest")
+    if isinstance(explicit, dict) and explicit:
+        return explicit
+
+    install = resolve_command(tool_block.get("install"), os_name, linux_family)
+    if not install:
+        return None
+    m = re.search(
+        r"\b(?:npm\s+(?:install|i)|bun\s+add)\s+(?:-g|--global)\s+([^\s;&|]+)", install
+    )
+    if m:
+        return {"npm": _strip_pkg_version(m.group(1))}
+    m = re.search(r"\bbrew\s+install\s+--cask\s+([^\s;&|]+)", install)
+    if m:
+        return {"brew_cask": m.group(1)}
+    m = re.search(r"\bbrew\s+install\s+([^\s;&|-][^\s;&|]*)", install)
+    if m:
+        return {"brew_formula": m.group(1)}
+    return None
+
+
+def fetch_latest_version(source: Dict) -> Optional[str]:
+    """Query the registry described by *source*; None on any failure."""
+    try:
+        if source.get("npm"):
+            data = json.loads(
+                _http_get("https://registry.npmjs.org/{}/latest".format(source["npm"]))
+            )
+            raw = data.get("version")
+        elif source.get("pypi"):
+            data = json.loads(
+                _http_get("https://pypi.org/pypi/{}/json".format(source["pypi"]))
+            )
+            raw = data.get("info", {}).get("version")
+        elif source.get("brew_cask"):
+            data = json.loads(
+                _http_get(
+                    "https://formulae.brew.sh/api/cask/{}.json".format(source["brew_cask"])
+                )
+            )
+            # Cask versions may carry a build suffix: "1.3.3,5524738307653632"
+            raw = str(data.get("version", "")).split(",", 1)[0]
+        elif source.get("brew_formula"):
+            data = json.loads(
+                _http_get(
+                    "https://formulae.brew.sh/api/formula/{}.json".format(
+                        source["brew_formula"]
+                    )
+                )
+            )
+            raw = data.get("versions", {}).get("stable")
+        elif source.get("github"):
+            data = json.loads(
+                _http_get(
+                    "https://api.github.com/repos/{}/releases/latest".format(
+                        source["github"]
+                    )
+                )
+            )
+            raw = data.get("tag_name")
+        elif source.get("url") and source.get("regex"):
+            m = re.search(source["regex"], _http_get(source["url"]))
+            raw = m.group(1) if m else None
+        else:
+            return None
+    except Exception:
+        return None
+    if not raw:
+        return None
+    m = _VERSION_NUM_RE.search(str(raw))
+    return m.group(0) if m else None
+
+
+def _version_tuple(text: Optional[str]) -> Optional[Tuple[int, ...]]:
+    m = _VERSION_NUM_RE.search(text or "")
+    if not m:
+        return None
+    return tuple(int(p) for p in m.group(0).split("."))
+
+
+def is_update_available(installed: Optional[str], latest: Optional[str]) -> bool:
+    """True when *latest* is strictly newer than the *installed* version string."""
+    cur = _version_tuple(installed)
+    new = _version_tuple(latest)
+    if not cur or not new:
+        return False
+    width = max(len(cur), len(new))
+    cur += (0,) * (width - len(cur))
+    new += (0,) * (width - len(new))
+    return new > cur
+
+
+def installed_version_number(installed: Optional[str]) -> Optional[str]:
+    """Extract the bare version number from a raw ``--version`` output."""
+    m = _VERSION_NUM_RE.search(installed or "")
+    return m.group(0) if m else None
+
+
+def scan_latest_versions(
+    tools: Dict, os_name: str, linux_family: Optional[str]
+) -> LatestMap:
+    """Look up the newest published version of every tool concurrently."""
+    sources = {
+        name: latest_version_source(block, os_name, linux_family)
+        for name, block in tools.items()
+    }
+    pending = {name: src for name, src in sources.items() if src}
+    results: LatestMap = {name: None for name in tools}
+    if not pending:
+        return results
+    with ThreadPoolExecutor(max_workers=min(16, len(pending))) as pool:
+        futures = {pool.submit(fetch_latest_version, src): n for n, src in pending.items()}
+        for fut in as_completed(futures):
+            results[futures[fut]] = fut.result()
+    return results
+
+
 # ─── UI Primitives ────────────────────────────────────────────────────────────
 
 
@@ -1601,6 +1760,7 @@ def _tool_row(
     name: str,
     block: Dict,
     version: Optional[str],
+    latest: Optional[str],
     os_name: str,
     name_w: int,
     stat_w: int,
@@ -1624,10 +1784,15 @@ def _tool_row(
     name_str = _ljust(name_lbl, name_w)
     stat_str = _ljust(icon + " " + status_label + key_badge, stat_w + 2)
 
-    version_txt = version or "—"
+    outdated = is_update_available(version, latest)
+    if outdated:
+        version_txt = "↑ {} → {}".format(installed_version_number(version), latest)
+    else:
+        version_txt = version or "—"
     if len(version_txt) > ver_w:
         version_txt = version_txt[: max(1, ver_w - 1)] + "…"
-    ver_str = _dim(_ljust(version_txt, ver_w))
+    ver_str = _ljust(version_txt, ver_w)
+    ver_str = _warn(ver_str) if outdated else _dim(ver_str)
 
     print("  │ {} │ {} │ {} │ {} │".format(num_str, name_str, stat_str, ver_str))
 
@@ -1660,7 +1825,11 @@ def _section_header(col_widths: List[int]) -> None:
 
 
 def print_tools_table(
-    tools: Dict, ides: Dict, version_map: VersionMap, os_name: str
+    tools: Dict,
+    ides: Dict,
+    version_map: VersionMap,
+    os_name: str,
+    latest_map: Optional[LatestMap] = None,
 ) -> None:
     """Render the full tools table to stdout, split into CLI Tools and IDEs sections.
 
@@ -1695,6 +1864,7 @@ def print_tools_table(
                 name,
                 src[name],
                 version_map.get(name),
+                (latest_map or {}).get(name),
                 os_name,
                 name_w,
                 stat_w,
@@ -1721,6 +1891,7 @@ def print_tools_table(
         "{} {}".format(_ok("✓"), _t("legend_installed")),
         "{} {}".format(_warn("◐"), _t("legend_profile")),
         "{} {}".format(_err("✗"), _t("legend_not_installed")),
+        "{} {}".format(_warn("↑"), _t("legend_update_available")),
     ]
     print("  " + "   ".join(legend_parts))
     print()
@@ -1871,19 +2042,6 @@ def manage_tools(config: Dict, os_name: str, linux_family: Optional[str]) -> Non
 
         cmd = install_cmd.strip()
 
-        def _strip_pkg_version(spec: str) -> str:
-            spec = spec.strip()
-            if not spec:
-                return spec
-            # Scoped package: @scope/name@version -> @scope/name
-            if spec.startswith("@"):
-                at = spec.rfind("@")
-                if at > 0:
-                    return spec[:at]
-                return spec
-            # Unscoped package: name@version -> name
-            return spec.split("@", 1)[0]
-
         # winget install -e --id Vendor.Package
         m = re.search(
             r"winget\s+install(?:\s+-e)?\s+--id\s+([^\s]+)", cmd, re.IGNORECASE
@@ -1963,6 +2121,10 @@ def manage_tools(config: Dict, os_name: str, linux_family: Optional[str]) -> Non
         author = tool_block.get("author", "")
         description = _desc(tool_block)
         version_str = current_version or _t("not_installed_label")
+        latest = latest_map.get(selected)
+        upgrade_hint = ""
+        if is_update_available(current_version, latest):
+            upgrade_hint = " " + _warn("→ " + latest)
 
         line1 = "{} {}".format(_bold(selected), _dim(version_str))
         content_w = _vlen(line1)
@@ -1988,7 +2150,7 @@ def manage_tools(config: Dict, os_name: str, linux_family: Optional[str]) -> Non
 
         print()
         print("  {} {}  {}".format(_ok("↓"), _bold("1."), _t("action_install")))
-        print("  {} {}  {}".format(_blue("↑"), _bold("2."), _t("action_upgrade")))
+        print("  {} {}  {}{}".format(_blue("↑"), _bold("2."), _t("action_upgrade"), upgrade_hint))
         print("  {} {}  {}".format(_err("✕"), _bold("3."), _t("action_uninstall")))
 
         if cfg_block:
@@ -2294,14 +2456,24 @@ def manage_tools(config: Dict, os_name: str, linux_family: Optional[str]) -> Non
                 time.sleep(0.8)
 
     _clear_before_scan = False
+    # Registry lookups run in the background while local versions are probed;
+    # they are fetched once per session.
+    latest_map: LatestMap = {}
+
+    def _fetch_latest() -> None:
+        latest_map.update(scan_latest_versions(all_tools, os_name, linux_family))
+
+    latest_thread = threading.Thread(target=_fetch_latest, daemon=True)
+    latest_thread.start()
     version_map = _scan_versions_with_progress()
+    latest_thread.join(timeout=_LATEST_HTTP_TIMEOUT + 2)
 
     while True:
         if _clear_before_scan:
             os.system("cls" if sys.platform == "win32" else "clear")
         _clear_before_scan = False
 
-        print_tools_table(tools, ides, version_map, os_name)
+        print_tools_table(tools, ides, version_map, os_name, latest_map)
 
         selections = choose_tool(names)
         if selections is None:

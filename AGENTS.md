@@ -13,6 +13,7 @@
 - Tool definitions live in `config.json` under `tools` and `ides`; menu order follows JSON key order.
 - `resolve_command()` only resolves `all`, `windows`, `macos`, `linux`, and Linux family keys (e.g. `debian`/`fedora`/`arch`/`default`). Keys like `all_alt`/`linux_alt` are ignored by runtime.
 - `run` is required for install detection. Version detection uses `version_cmd`/`version_regex` when present; otherwise probes `--version`, `-v`, `version`.
+- Latest-version lookup (the "↑ update available" marker) is inferred from `npm`/`bun`/`brew` install commands; for other installers add a `latest` block with one of `npm`, `pypi`, `brew_cask`, `brew_formula`, `github` (`owner/repo`) or `url` + `regex`.
 - Use `skip_version_probe: true` for GUI apps that should not be launched during detection.
 - If `uninstall` is omitted, uninstall is inferred from `install` only for known patterns (`winget`, `brew`, `npm`, `bun`, `apt-get`, `dnf`/`yum`, `pacman`).
 

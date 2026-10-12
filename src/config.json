@@ -124,7 +124,8 @@
       "section_ides": "IDEs",
       "legend_installed": "instalado",
       "legend_profile": "perfil de shell",
-      "legend_not_installed": "não instalado"
+      "legend_not_installed": "não instalado",
+      "legend_update_available": "atualização disponível"
     },
     "en": {
       "lang_prompt": "Escolha o idioma / Choose language:",
@@ -250,7 +251,8 @@
       "section_ides": "IDEs",
       "legend_installed": "installed",
       "legend_profile": "shell profile",
-      "legend_not_installed": "not installed"
+      "legend_not_installed": "not installed",
+      "legend_update_available": "update available"
     }
   },
   "prerequisite": {
@@ -320,6 +322,9 @@
         "all": "claude upgrade"
       },
       "run": "claude",
+      "latest": {
+        "npm": "@anthropic-ai/claude-code"
+      },
       "uninstall": {
         "windows": "if (Test-Path \"$env:USERPROFILE\\.local\\bin\\claude.exe\") { Remove-Item -Force \"$env:USERPROFILE\\.local\\bin\\claude.exe\" }; exit 0",
         "macos": "([ -f /usr/local/bin/claude ] && sudo rm -f /usr/local/bin/claude || true) && rm -f \"$HOME/.local/bin/claude\"",
@@ -361,6 +366,9 @@
         "all": "copilot update"
       },
       "run": "copilot",
+      "latest": {
+        "npm": "@github/copilot"
+      },
       "uninstall": {
         "windows": "winget uninstall -e --id GitHub.Copilot; exit 0",
         "macos": "rm -f \"$HOME/.local/bin/copilot\"; if [ -f /usr/local/bin/copilot ]; then rm -f /usr/local/bin/copilot 2>/dev/null || sudo rm -f /usr/local/bin/copilot; fi; npm uninstall -g @github/copilot >/dev/null 2>&1 || true; if command -v gh >/dev/null 2>&1; then gh extension remove github/gh-copilot >/dev/null 2>&1 || true; fi; tries=0; while command -v copilot >/dev/null 2>&1 && [ \"$tries\" -lt 5 ]; do bin=\"$(command -v copilot)\"; rm -f \"$bin\" 2>/dev/null || sudo rm -f \"$bin\" 2>/dev/null || break; tries=$((tries+1)); done; exit 0",
@@ -418,6 +426,9 @@
         "linux": "uv tool upgrade kimi-cli --no-cache || curl -LsSf https://code.kimi.com/install.sh | bash"
       },
       "run": "kimi",
+      "latest": {
+        "pypi": "kimi-cli"
+      },
       "uninstall": {
         "windows": "uv tool uninstall kimi-cli",
         "macos": "uv tool uninstall kimi-cli || rm -f \"$HOME/.local/bin/kimi\"",
@@ -441,6 +452,9 @@
         "all": null
       },
       "run": "qwen",
+      "latest": {
+        "npm": "@qwen-code/qwen-code"
+      },
       "uninstall": {
         "windows": "if (Test-Path \"$env:LOCALAPPDATA\\Programs\\Qwen\\uninstall.exe\") { & \"$env:LOCALAPPDATA\\Programs\\Qwen\\uninstall.exe\" /S } elseif (Test-Path \"$env:ProgramFiles\\Qwen\\uninstall.exe\") { & \"$env:ProgramFiles\\Qwen\\uninstall.exe\" /S }; $npmPrefix = (npm prefix -g 2>$null); foreach ($name in @('@qwen-code/qwen-code','qwen','qwen-code','@qwen/code','qwenchat')) { npm uninstall -g $name 2>$null }; foreach ($ext in @('.cmd','.ps1','')) { $stub = \"$npmPrefix\\qwen$ext\"; if (Test-Path $stub) { Remove-Item $stub -Force } }; exit 0",
         "macos": "npmPrefix=\"$(npm prefix -g 2>/dev/null)\"; for name in @qwen-code/qwen-code qwen qwen-code qwenchat; do npm uninstall -g \"$name\" >/dev/null 2>&1; done; if [ -n \"$npmPrefix\" ] && [ -f \"$npmPrefix/bin/qwen\" ]; then rm -f \"$npmPrefix/bin/qwen\"; fi; if [ -f /usr/local/bin/qwen ]; then rm -f /usr/local/bin/qwen 2>/dev/null || sudo rm -f /usr/local/bin/qwen; fi; rm -f \"$HOME/.local/bin/qwen\"; tries=0; while command -v qwen >/dev/null 2>&1 && [ \"$tries\" -lt 5 ]; do bin=\"$(command -v qwen)\"; rm -f \"$bin\" 2>/dev/null || sudo rm -f \"$bin\" 2>/dev/null || break; tries=$((tries+1)); done; exit 0",
@@ -477,6 +491,9 @@
         "macos": "curl -fsSL https://install.openhands.dev/install.sh | sh"
       },
       "run": "openhands",
+      "latest": {
+        "pypi": "openhands"
+      },
       "uninstall": {
         "linux": "([ -f /usr/local/bin/openhands ] && sudo rm -f /usr/local/bin/openhands || true) && rm -f \"$HOME/.local/bin/openhands\"",
         "macos": "([ -f /usr/local/bin/openhands ] && sudo rm -f /usr/local/bin/openhands || true) && rm -f \"$HOME/.local/bin/openhands\""
@@ -517,6 +534,9 @@
         "windows": "irm https://forgecode.dev/cli.ps1 | iex"
       },
       "run": "forge",
+      "latest": {
+        "npm": "forgecode"
+      },
       "uninstall": {
         "windows": "if (Test-Path \"$env:USERPROFILE\\.forge\\bin\\forge.exe\") { Remove-Item -Force \"$env:USERPROFILE\\.forge\\bin\\forge.exe\" }; exit 0",
         "macos": "([ -f /usr/local/bin/forge ] && sudo rm -f /usr/local/bin/forge || true) && rm -f \"$HOME/.local/bin/forge\"",
@@ -539,6 +559,9 @@
         "linux": "npm install -g @charmland/crush@latest"
       },
       "run": "crush",
+      "latest": {
+        "npm": "@charmland/crush"
+      },
       "uninstall": {
         "windows": "winget uninstall -e --id charmbracelet.crush; exit 0",
         "macos": "npm uninstall -g @charmland/crush",
@@ -590,10 +613,44 @@
         "linux": "curl https://cursor.com/install -fsS | bash"
       },
       "run": "cursor-agent",
+      "latest": {
+        "brew_cask": "cursor-cli"
+      },
       "uninstall": {
         "windows": "$dir = \"$env:LOCALAPPDATA\\cursor-agent\"; if (Test-Path $dir) { Remove-Item -Recurse -Force $dir }; $envKey = Get-Item 'HKCU:\\Environment'; $raw = $envKey.GetValue('Path', '', 'DoNotExpandEnvironmentNames'); if ($raw) { $kept = @($raw -split ';' | Where-Object { $_ -and ([Environment]::ExpandEnvironmentVariables($_).TrimEnd('\\')) -ne $dir.TrimEnd('\\') }) -join ';'; if ($kept -ne $raw) { Set-ItemProperty -Path 'HKCU:\\Environment' -Name Path -Value $kept -Type ExpandString } }; exit 0",
         "macos": "rm -f \"$HOME/.local/bin/cursor-agent\"; if [ -L \"$HOME/.local/bin/agent\" ]; then case \"$(readlink \"$HOME/.local/bin/agent\")\" in *cursor-agent*) rm -f \"$HOME/.local/bin/agent\";; esac; fi; rm -rf \"$HOME/.local/share/cursor-agent\"; exit 0",
         "linux": "rm -f \"$HOME/.local/bin/cursor-agent\"; if [ -L \"$HOME/.local/bin/agent\" ]; then case \"$(readlink \"$HOME/.local/bin/agent\")\" in *cursor-agent*) rm -f \"$HOME/.local/bin/agent\";; esac; fi; rm -rf \"$HOME/.local/share/cursor-agent\"; exit 0"
+      }
+    },
+    "agy": {
+      "author": "Google",
+      "description": "CLI oficial do Google Antigravity para codificação agentica no terminal",
+      "description_en": "Official Google Antigravity CLI for agentic coding in the terminal",
+      "needs_git": 0,
+      "path_entry": {
+        "windows": "%LOCALAPPDATA%\\Microsoft\\WinGet\\Links"
+      },
+      "version_cmd": {
+        "all": "agy --version"
+      },
+      "install": {
+        "windows": "winget install -e --id Google.AntigravityCLI --accept-source-agreements --accept-package-agreements",
+        "macos": "brew install --cask antigravity-cli",
+        "linux": "curl -fsSL https://antigravity.google/cli/install.sh | bash"
+      },
+      "upgrade": {
+        "windows": "winget upgrade -e --id Google.AntigravityCLI --accept-source-agreements --accept-package-agreements",
+        "macos": "brew upgrade --cask antigravity-cli || brew install --cask antigravity-cli",
+        "linux": "agy update"
+      },
+      "run": "agy",
+      "latest": {
+        "brew_cask": "antigravity-cli"
+      },
+      "uninstall": {
+        "windows": "winget uninstall -e --id Google.AntigravityCLI; $dir = \"$env:LOCALAPPDATA\\agy\\bin\"; if (Test-Path \"$env:LOCALAPPDATA\\agy\") { Remove-Item -Recurse -Force \"$env:LOCALAPPDATA\\agy\" }; if (Test-Path \"$env:LOCALAPPDATA\\antigravity\\staging\") { Remove-Item -Recurse -Force \"$env:LOCALAPPDATA\\antigravity\\staging\" }; $envKey = Get-Item 'HKCU:\\Environment'; $raw = $envKey.GetValue('Path', '', 'DoNotExpandEnvironmentNames'); if ($raw) { $kept = @($raw -split ';' | Where-Object { $_ -and ([Environment]::ExpandEnvironmentVariables($_).TrimEnd('\\')) -ne $dir.TrimEnd('\\') }) -join ';'; if ($kept -ne $raw) { Set-ItemProperty -Path 'HKCU:\\Environment' -Name Path -Value $kept -Type ExpandString } }; exit 0",
+        "macos": "brew uninstall --cask antigravity-cli; rm -f \"$HOME/.local/bin/agy\"; rm -rf \"$HOME/.cache/antigravity/staging\"; exit 0",
+        "linux": "rm -f \"$HOME/.local/bin/agy\"; rm -rf \"$HOME/.cache/antigravity/staging\"; exit 0"
       }
     }
   },
@@ -625,6 +682,9 @@
         }
       },
       "run": "cursor",
+      "latest": {
+        "brew_cask": "cursor"
+      },
       "uninstall": {
         "windows": "winget uninstall -e --id Anysphere.Cursor; exit 0",
         "macos": "rm -rf \"/Applications/Cursor.app\"",
@@ -653,6 +713,9 @@
         "linux": "curl -f https://zed.dev/install.sh | sh"
       },
       "run": "zed",
+      "latest": {
+        "brew_cask": "zed"
+      },
       "uninstall": {
         "windows": "winget uninstall -e --id ZedIndustries.Zed; exit 0",
         "macos": "brew uninstall --cask zed || true && rm -rf \"/Applications/Zed.app\" && rm -f \"$HOME/.local/bin/zed\"",
@@ -686,6 +749,9 @@
         }
       },
       "run": "trae",
+      "latest": {
+        "brew_cask": "trae"
+      },
       "uninstall": {
         "windows": "winget uninstall -e --id ByteDance.Trae; if ($LASTEXITCODE -ne 0) { winget uninstall -e --id Trae.Trae }; exit 0",
         "macos": "rm -rf \"/Applications/Trae.app\" \"/Applications/TRAE.app\"",
@@ -725,6 +791,9 @@
         }
       },
       "run": "OpenCode",
+      "latest": {
+        "brew_cask": "opencode-desktop"
+      },
       "uninstall": {
         "windows": "winget uninstall -e --id Anomaly.OpenCodeDesktop; if ($LASTEXITCODE -ne 0) { winget uninstall -e --id OpenCode.OpenCodeDesktop }; exit 0",
         "macos": "rm -rf \"/Applications/OpenCode.app\" \"/Applications/OpenCode Desktop.app\"",
@@ -772,6 +841,36 @@
           "arch": "rm -f \"$HOME/.local/bin/windsurf\" && rm -rf \"$HOME/.local/opt/windsurf\"",
           "default": "rm -f \"$HOME/.local/bin/windsurf\" && rm -rf \"$HOME/.local/opt/windsurf\""
         }
+      }
+    },
+    "antigravity": {
+      "author": "Google",
+      "description": "IDE agentica do Google com agentes de IA integrados, baseada no VS Code",
+      "description_en": "Google's agentic IDE with built-in AI agents, based on VS Code",
+      "category": "ide",
+      "needs_git": 0,
+      "version_cmd": {
+        "all": "antigravity-ide --version"
+      },
+      "version_regex": "(\\d+\\.\\d+\\.\\d+)",
+      "install": {
+        "windows": "winget install -e --id Google.AntigravityIDE --accept-source-agreements --accept-package-agreements",
+        "macos": "brew install --cask antigravity-ide",
+        "linux": "case \"$(uname -m)\" in aarch64|arm64) ARCH=arm;; *) ARCH=x64;; esac && URL=$(curl -fsSL --retry 3 'https://antigravity.google/download?os=linux' | grep -oE \"https://edgedl[^\\\" ]+/linux-$ARCH/[^\\\" ]+\\.tar\\.gz\" | head -n1) && [ -n \"$URL\" ] && TMP=$(mktemp -d) && curl -fsSL --retry 3 \"$URL\" -o \"$TMP/antigravity-ide.tar.gz\" && mkdir -p \"$HOME/.local/opt/antigravity-ide\" \"$HOME/.local/bin\" && rm -rf \"$HOME/.local/opt/antigravity-ide/\"* && tar -xzf \"$TMP/antigravity-ide.tar.gz\" -C \"$HOME/.local/opt/antigravity-ide\" --strip-components=1 && ln -sf \"$HOME/.local/opt/antigravity-ide/bin/antigravity-ide\" \"$HOME/.local/bin/antigravity-ide\" && rm -rf \"$TMP\""
+      },
+      "upgrade": {
+        "windows": "winget upgrade -e --id Google.AntigravityIDE --accept-source-agreements --accept-package-agreements",
+        "macos": "brew upgrade --cask antigravity-ide || brew install --cask antigravity-ide",
+        "linux": "case \"$(uname -m)\" in aarch64|arm64) ARCH=arm;; *) ARCH=x64;; esac && URL=$(curl -fsSL --retry 3 'https://antigravity.google/download?os=linux' | grep -oE \"https://edgedl[^\\\" ]+/linux-$ARCH/[^\\\" ]+\\.tar\\.gz\" | head -n1) && [ -n \"$URL\" ] && TMP=$(mktemp -d) && curl -fsSL --retry 3 \"$URL\" -o \"$TMP/antigravity-ide.tar.gz\" && mkdir -p \"$HOME/.local/opt/antigravity-ide\" \"$HOME/.local/bin\" && rm -rf \"$HOME/.local/opt/antigravity-ide/\"* && tar -xzf \"$TMP/antigravity-ide.tar.gz\" -C \"$HOME/.local/opt/antigravity-ide\" --strip-components=1 && ln -sf \"$HOME/.local/opt/antigravity-ide/bin/antigravity-ide\" \"$HOME/.local/bin/antigravity-ide\" && rm -rf \"$TMP\""
+      },
+      "run": "antigravity-ide",
+      "latest": {
+        "brew_cask": "antigravity-ide"
+      },
+      "uninstall": {
+        "windows": "winget uninstall -e --id Google.AntigravityIDE; exit 0",
+        "macos": "brew uninstall --cask antigravity-ide; exit 0",
+        "linux": "rm -f \"$HOME/.local/bin/antigravity-ide\" && rm -rf \"$HOME/.local/opt/antigravity-ide\""
       }
     }
   }
