@@ -23,7 +23,7 @@
 > **Instale com o seu agente de IA.** Cole no Claude Code, Codex, Gemini CLI, Cursor ou em qualquer outro agente:
 >
 > ```text
-> Instale o RivetRook: https://github.com/paulocarinhena/RivetRook
+> Instale o RivetRook: https://github.com/CariSoftwareBR/RivetRook
 > ```
 >
 > 🤖 *Agentes de IA: o passo a passo de instalação está em [`INSTALLATION.md`](INSTALLATION.md).*
@@ -54,7 +54,7 @@
 **Manualmente:**
 
 ```sh
-git clone https://github.com/paulocarinhena/RivetRook.git
+git clone https://github.com/CariSoftwareBR/RivetRook.git
 python3 RivetRook/src/RivetRook.py        # Windows: python RivetRook\src\RivetRook.py
 ```
 

@@ -19,7 +19,7 @@
 
 ## Releases and self-update
 - `__version__` at the top of `src/RivetRook.py` drives self-update: on startup the app fetches `src/RivetRook.py` from GitHub `main` and offers to update when the published `__version__` is higher. Bump it on every release, or users are never notified.
-- Update path: `git pull --ff-only` only when the script is at `<root>/src/RivetRook.py` of a clone whose `origin` is `paulocarinhena/RivetRook`; otherwise download + validate + atomic swap of `RivetRook.py` and the default `config.json`. `RIVETROOK_NO_UPDATE=1` disables it.
+- Update path: `git pull --ff-only` only when the script is at `<root>/src/RivetRook.py` of a clone whose `origin` is `CariSoftwareBR/RivetRook` (or the pre-move `paulocarinhena/RivetRook`); otherwise download + validate + atomic swap of `RivetRook.py` and the default `config.json`. `RIVETROOK_NO_UPDATE=1` disables it.
 
 ## Docs and install surface
 - `README.md` (en, default) and `README.pt-br.md` (pt-BR) are mirrors: change both together. Images live in `assets/`; when the UI changes, regenerate the screenshot under a new versioned name (`assets/screenshot-vX.Y.Z.png`) — GitHub's CDN keeps serving stale copies of a reused file name. The animated README demo is generated from the real UI by `python assets/make_demo.py` (local-only, git-ignored; writes `assets/demo-v<__version__>.svg`); regenerate it on release and update both READMEs to the new name.

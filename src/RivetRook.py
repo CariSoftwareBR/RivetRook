@@ -1826,8 +1826,11 @@ def scan_latest_versions(
 
 # ─── Self-update ──────────────────────────────────────────────────────────────
 
-_REPO_RAW_URL = "https://raw.githubusercontent.com/paulocarinhena/RivetRook/main/src/"
+_REPO_RAW_URL = "https://raw.githubusercontent.com/CariSoftwareBR/RivetRook/main/src/"
 _VERSION_ASSIGN_RE = re.compile(r"""^__version__\s*=\s*["']([^"']+)["']""", re.M)
+# The repo moved from paulocarinhena to CariSoftwareBR; clones made before the
+# move still have the old origin (GitHub redirects it) and keep updating.
+_REPO_SLUGS = ("carisoftwarebr/rivetrook", "paulocarinhena/rivetrook")
 
 
 def _rivetrook_git_root(script_path: Path) -> Optional[Path]:
@@ -1850,7 +1853,7 @@ def _rivetrook_git_root(script_path: Path) -> Optional[Path]:
         )
     except Exception:
         return None
-    if proc.returncode != 0 or "paulocarinhena/rivetrook" not in proc.stdout.lower():
+    if proc.returncode != 0 or not any(slug in proc.stdout.lower() for slug in _REPO_SLUGS):
         return None
     return root
 

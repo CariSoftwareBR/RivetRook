@@ -1,7 +1,7 @@
 # Installing RivetRook
 
 > **For AI agents.** This file is the installation runbook for RivetRook. If a user asked you to
-> *"install RivetRook"* or *"install https://github.com/paulocarinhena/RivetRook"*, follow the steps
+> *"install RivetRook"* or *"install https://github.com/CariSoftwareBR/RivetRook"*, follow the steps
 > below in order. Every step is idempotent — running it again on an existing install is safe and
 > simply updates it. Humans can follow the same steps by hand.
 
@@ -56,10 +56,10 @@ Use `git` when available, so RivetRook can update itself with `git pull`.
 if [ -d "$HOME/RivetRook/.git" ]; then
   git -C "$HOME/RivetRook" pull --ff-only
 elif command -v git >/dev/null 2>&1; then
-  git clone https://github.com/paulocarinhena/RivetRook.git "$HOME/RivetRook"
+  git clone https://github.com/CariSoftwareBR/RivetRook.git "$HOME/RivetRook"
 else
   tmp=$(mktemp -d)
-  curl -fsSL https://github.com/paulocarinhena/RivetRook/archive/refs/heads/main.tar.gz | tar -xz -C "$tmp"
+  curl -fsSL https://github.com/CariSoftwareBR/RivetRook/archive/refs/heads/main.tar.gz | tar -xz -C "$tmp"
   rm -rf "$HOME/RivetRook" && mv "$tmp/RivetRook-main" "$HOME/RivetRook"
 fi
 chmod +x "$HOME/RivetRook/bin/rivetrook"
@@ -72,10 +72,10 @@ $dir = Join-Path $HOME 'RivetRook'
 if (Test-Path (Join-Path $dir '.git')) {
     git -C $dir pull --ff-only
 } elseif (Get-Command git -ErrorAction SilentlyContinue) {
-    git clone https://github.com/paulocarinhena/RivetRook.git $dir
+    git clone https://github.com/CariSoftwareBR/RivetRook.git $dir
 } else {
     $zip = Join-Path $env:TEMP 'RivetRook-main.zip'
-    Invoke-WebRequest https://github.com/paulocarinhena/RivetRook/archive/refs/heads/main.zip -OutFile $zip
+    Invoke-WebRequest https://github.com/CariSoftwareBR/RivetRook/archive/refs/heads/main.zip -OutFile $zip
     Expand-Archive $zip -DestinationPath $env:TEMP -Force
     if (Test-Path $dir) { Remove-Item $dir -Recurse -Force }
     Move-Item (Join-Path $env:TEMP 'RivetRook-main') $dir
