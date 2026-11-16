@@ -137,6 +137,7 @@
       "self_update_failed": "Falha ao atualizar o RivetRook: {}",
       "self_update_checking": "Procurando atualizações do RivetRook",
       "self_update_git_stale": "o clone local não recebeu a v{} (a branch atual é a main?)",
+      "self_update_download_stale": "o arquivo baixado ainda não contém a v{} (cache do GitHub); tente novamente em alguns minutos",
       "tagline": "Gerenciador de ferramentas de IA"
     },
     "en": {
@@ -276,6 +277,7 @@
       "self_update_failed": "Failed to update RivetRook: {}",
       "self_update_checking": "Checking for RivetRook updates",
       "self_update_git_stale": "the local clone did not receive v{} (is the current branch main?)",
+      "self_update_download_stale": "the downloaded file does not contain v{} yet (GitHub cache); try again in a few minutes",
       "tagline": "AI toolchain manager"
     }
   },

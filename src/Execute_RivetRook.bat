@@ -14,7 +14,7 @@ echo.
 echo  [!] Python nao foi encontrado no sistema.
 echo      Python e um pre-requisito para executar o RivetRook.
 echo.
-set /p "INSTALL=  Deseja instalar o Python 3.11 agora via winget? (S/N): "
+set /p "INSTALL=  Deseja instalar o Python 3.14 agora via winget? (S/N): "
 if /i "!INSTALL!"=="S" goto :install
 if /i "!INSTALL!"=="Y" goto :install
 
@@ -37,9 +37,9 @@ if %ERRORLEVEL% neq 0 (
 )
 
 echo.
-echo  [*] Instalando Python 3.11 via winget...
+echo  [*] Instalando Python 3.14 via winget...
 echo.
-winget install -e --id Python.Python.3.11
+winget install -e --id Python.Python.3.14
 if %ERRORLEVEL% neq 0 (
     echo.
     echo  [X] Falha ao instalar o Python via winget.

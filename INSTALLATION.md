@@ -38,7 +38,7 @@ If Python is missing or older than 3.8, ask the user before installing system pa
 
 | Platform | Command |
 |----------|---------|
-| Windows | `winget install -e --id Python.Python.3.12` — then open a new terminal |
+| Windows | `winget install -e --id Python.Python.3.14` — then open a new terminal |
 | macOS | `brew install python` |
 | Debian / Ubuntu | `sudo apt-get install -y python3` |
 | Fedora / RHEL | `sudo dnf install -y python3` |

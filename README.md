@@ -8,7 +8,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.8%2B-A78BFA?style=flat-square&logo=python&logoColor=white" alt="Python 3.8+">
-  <img src="https://img.shields.io/badge/node.js-20%2B-60A5FA?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js 20+">
+  <img src="https://img.shields.io/badge/node.js-24%2B-60A5FA?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js 24+">
   <img src="https://img.shields.io/badge/windows%20·%20macOS%20·%20linux-22D3EE?style=flat-square&logo=windowsterminal&logoColor=white" alt="Windows · macOS · Linux">
   <img src="https://img.shields.io/badge/license-GPL--3.0-34D399?style=flat-square" alt="License GPL-3.0">
 </p>
@@ -29,7 +29,7 @@
 > 🤖 *AI agents: the installation runbook is [`INSTALLATION.md`](INSTALLATION.md).*
 
 <p align="center">
-  <img src="assets/demo-v1.1.0.svg" alt="Animated RivetRook terminal demo" width="100%">
+  <img src="assets/demo-v1.2.0.svg" alt="Animated RivetRook terminal demo" width="100%">
 </p>
 
 ## ✦ Highlights
@@ -60,7 +60,7 @@ python3 RivetRook/src/RivetRook.py        # Windows: python RivetRook\src\RivetR
 
 To launch with a double-click, use `src/Execute_RivetRook.bat` (Windows) or `src/Execute_RivetRook.sh` (Linux/macOS). To get a `rivetrook` command in every terminal, follow [`INSTALLATION.md`](INSTALLATION.md).
 
-> **Requirements:** Python 3.8+. Node.js 20+ is installed automatically on first run if missing.
+> **Requirements:** Python 3.8+. Node.js 24+ is installed automatically on first run if missing.
 
 ## 🧭 Usage
 
