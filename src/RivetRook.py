@@ -8,7 +8,7 @@ Instala, atualiza, desinstala e configura ferramentas populares de IA
 (Claude, Codex, Gemini, OpenCode, Cline, …) a partir de um menu interativo.
 
 Platforms / Plataformas: Windows, macOS, Linux
-Requires / Requer: Python 3.8+, Node.js 20+ (auto-installed)
+Requires / Requer: Python 3.8+, Node.js 24+ (auto-installed)
 Config: src/config.json (tools, i18n strings, prerequisite)
 Author: Paulo Carinhena (https://github.com/paulocarinhena)
 """
@@ -240,8 +240,11 @@ def _blue(t: str) -> str:
     return _c(_A.BBLUE, t)
 
 
+_ANSI_RE = re.compile(r"\033\[[^m]*m")
+
+
 def _strip_ansi(s: str) -> str:
-    return re.sub(r"\033\[[^m]*m", "", s)
+    return _ANSI_RE.sub("", s)
 
 
 def _press_any_key() -> None:
@@ -566,6 +569,7 @@ def run_command(
             return subprocess.run(cmd, check=False, timeout=timeout)
         return subprocess.run(
             cmd,
+            stdin=subprocess.DEVNULL,
             text=True,
             capture_output=True,
             check=False,
@@ -578,6 +582,7 @@ def run_command(
     return subprocess.run(
         command,
         shell=True,
+        stdin=subprocess.DEVNULL,
         text=True,
         capture_output=True,
         check=False,
@@ -886,6 +891,13 @@ def with_linux_elevation(
     return "sudo sh -c {}".format(shlex.quote(command))
 
 
+_PROFILE_SOURCE = (
+    "source ~/.profile >/dev/null 2>&1; "
+    "source ~/.bashrc >/dev/null 2>&1; "
+    "source ~/.zshrc >/dev/null 2>&1; "
+)
+
+
 def command_in_profile_shell(command: str, os_name: str) -> str:
     """Wrap *command* so it runs inside a login bash shell on Linux/macOS.
 
@@ -896,12 +908,44 @@ def command_in_profile_shell(command: str, os_name: str) -> str:
     """
     if os_name not in ("linux", "macos") or not which("bash"):
         return command
-    wrapped = (
-        "source ~/.profile >/dev/null 2>&1; "
-        "source ~/.bashrc >/dev/null 2>&1; "
-        "source ~/.zshrc >/dev/null 2>&1; " + command
+    return "bash -lc {}".format(shlex.quote(_PROFILE_SOURCE + command))
+
+
+# A login shell that sources the RC files costs 100 ms to several seconds
+# (nvm, conda, oh-my-zsh…). Results are cached and probed in one batch: the
+# first lookup checks every registered binary with a single shell, so a full
+# scan or table render pays for one shell instead of one per missing tool.
+_PROFILE_BIN_CACHE: Dict[str, bool] = {}
+_PROFILE_BIN_KNOWN: set = set()
+_PROFILE_BIN_LOCK = threading.Lock()
+
+
+def register_profile_binaries(binaries) -> None:
+    """Declare binaries to include in the next batched login-shell lookup."""
+    with _PROFILE_BIN_LOCK:
+        _PROFILE_BIN_KNOWN.update(b for b in binaries if b)
+
+
+def invalidate_profile_cache() -> None:
+    """Forget cached login-shell lookups (call after anything that may change PATH)."""
+    with _PROFILE_BIN_LOCK:
+        _PROFILE_BIN_CACHE.clear()
+
+
+def _probe_profile_binaries(binaries: List[str], os_name: str) -> set:
+    """Return the subset of *binaries* reachable in one login bash shell."""
+    loop = 'for b in {}; do command -v "$b" >/dev/null 2>&1 && printf "%s\\n" "$b"; done'.format(
+        " ".join(shlex.quote(b) for b in binaries)
     )
-    return "bash -lc {}".format(shlex.quote(wrapped))
+    check_cmd = "bash -lc {}".format(shlex.quote(_PROFILE_SOURCE + loop))
+    try:
+        result = run_command(check_cmd, os_name, show_command=False, timeout=15)
+    except Exception:
+        return set()
+    # RC files may print noise (login banners, ~/.bash_profile output): only
+    # lines that exactly match a requested name count.
+    wanted = set(binaries)
+    return {ln.strip() for ln in (result.stdout or "").splitlines() if ln.strip() in wanted}
 
 
 def binary_available_in_profile_shell(binary: str, os_name: str) -> bool:
@@ -911,20 +955,15 @@ def binary_available_in_profile_shell(binary: str, os_name: str) -> bool:
     (e.g. ~/.local/bin) that are not visible in the current process PATH.
     Always returns False on Windows.
     """
-    if os_name not in ("linux", "macos") or not which("bash"):
+    if not binary or os_name not in ("linux", "macos") or not which("bash"):
         return False
-    inner = (
-        "source ~/.profile >/dev/null 2>&1; "
-        "source ~/.bashrc >/dev/null 2>&1; "
-        "source ~/.zshrc >/dev/null 2>&1; "
-        "command -v {} >/dev/null 2>&1".format(shlex.quote(binary))
-    )
-    check_cmd = "bash -lc {}".format(shlex.quote(inner))
-    try:
-        result = run_command(check_cmd, os_name, show_command=False, timeout=10)
-    except Exception:
-        return False
-    return result.returncode == 0
+    with _PROFILE_BIN_LOCK:
+        if binary not in _PROFILE_BIN_CACHE:
+            batch = sorted(({binary} | _PROFILE_BIN_KNOWN) - set(_PROFILE_BIN_CACHE))
+            found = _probe_profile_binaries(batch, os_name)
+            for b in batch:
+                _PROFILE_BIN_CACHE[b] = b in found
+        return _PROFILE_BIN_CACHE[binary]
 
 
 def bootstrap_user_bin_path(os_name: str) -> List[str]:
@@ -1106,6 +1145,31 @@ def resolve_command(block, os_name: str, linux_family: Optional[str]) -> Optiona
 # ─── Version Detection ────────────────────────────────────────────────────────
 
 
+# Anything a shell would interpret: such commands always go through the shell.
+_SHELL_META_RE = re.compile(r"""[|&;<>()$`\\"'*?\[\]{}~%!^#\n]""")
+
+
+def _direct_argv(command: str, os_name: str) -> Optional[List[str]]:
+    """Return an argv to run *command* without a shell, or None if it needs one.
+
+    Only plain ``binary arg…`` commands whose binary resolves to a native
+    executable qualify. On Windows that means ``.exe``/``.com``; npm shims
+    (``.cmd``/``.ps1``) and everything else keep running through PowerShell.
+    Skipping the shell saves a PowerShell start-up (~300–500 ms) per probe.
+    """
+    if _SHELL_META_RE.search(command):
+        return None
+    parts = command.split()
+    if not parts:
+        return None
+    path = which(parts[0])
+    if not path:
+        return None
+    if os_name == "windows" and Path(path).suffix.lower() not in (".exe", ".com"):
+        return None
+    return [path] + parts[1:]
+
+
 def _probe_version(
     probe: str, os_name: str, use_profile: bool = False
 ) -> Optional[str]:
@@ -1114,9 +1178,23 @@ def _probe_version(
     When *use_profile* is True the command is wrapped in a login shell so
     profile-sourced directories are on PATH.
     """
-    cmd = command_in_profile_shell(probe, os_name) if use_profile else probe
+    argv = None if use_profile else _direct_argv(probe, os_name)
     try:
-        result = run_command(cmd, os_name, show_command=False, timeout=4)
+        if argv:
+            result = subprocess.run(
+                argv,
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+                timeout=4,
+                creationflags=_WIN_NO_WINDOW,
+            )
+        else:
+            cmd = command_in_profile_shell(probe, os_name) if use_profile else probe
+            result = run_command(cmd, os_name, show_command=False, timeout=4)
     except Exception:
         return None
     if result.returncode != 0:
@@ -1248,8 +1326,10 @@ def tool_access_state(tool_block: Dict, os_name: str) -> str:
 
 # ─── Node.js Version Check ────────────────────────────────────────────────────
 
-# Minimum Node.js major version required by modern CLI tools (regex /v flag = v20+)
-_NODE_MIN_MAJOR = 20
+# Minimum Node.js major version required by modern CLI tools. Several declare
+# engines >=22 (claude, qwen, pi); 24 is the oldest LTS line in active use and
+# every configured Node installer (winget LTS, n lts, n-install 24) meets it.
+_NODE_MIN_MAJOR = 24
 
 
 def _node_major_version(os_name: str) -> Optional[int]:
@@ -1649,6 +1729,8 @@ def scan_all_versions(
     def _detect(name: str, block: Dict) -> Tuple[str, Optional[str]]:
         return name, detect_tool_version(name, block, os_name)
 
+    # A scan must reflect the current machine state, not earlier lookups.
+    invalidate_profile_cache()
     results: VersionMap = {}
     total = len(tools)
     workers = min(16, max(1, total))
@@ -1689,12 +1771,16 @@ def _strip_pkg_version(spec: str) -> str:
     return spec.split("@", 1)[0]
 
 
-def _http_get(url: str) -> str:
-    req = urllib.request.Request(
-        url, headers={"User-Agent": "RivetRook", "Accept": "application/json"}
-    )
+def _http_get(url: str, max_bytes: Optional[int] = None) -> str:
+    """GET *url* as text; with *max_bytes*, fetch only the start of the body."""
+    headers = {"User-Agent": "RivetRook", "Accept": "application/json"}
+    if max_bytes:
+        headers["Range"] = "bytes=0-{}".format(max_bytes - 1)
+    req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req, timeout=_LATEST_HTTP_TIMEOUT) as resp:
-        return resp.read().decode("utf-8", errors="replace")
+        # Servers that ignore Range send the whole body: cap the read anyway.
+        data = resp.read(max_bytes) if max_bytes else resp.read()
+    return data.decode("utf-8", errors="replace")
 
 
 def latest_version_source(
@@ -1866,21 +1952,28 @@ def _local_script_version(script_path: Path) -> Optional[str]:
     return m.group(1) if m else None
 
 
-def check_self_update() -> Optional[Tuple[str, str]]:
-    """Fetch the published script and return (remote_version, source) if newer.
+# ``__version__`` sits near the top of the script: the startup check only
+# downloads this many bytes instead of the whole file.
+_SELF_UPDATE_HEAD_BYTES = 4096
 
+
+def check_self_update() -> Optional[str]:
+    """Return the published RivetRook version when it is newer than this one.
+
+    Only the head of the published script is fetched; the full file is
+    downloaded later, if the user accepts the update.
     Never raises: any network or parse failure simply means "no update".
     """
     if os.environ.get("RIVETROOK_NO_UPDATE"):
         return None
     try:
-        source = _http_get(_REPO_RAW_URL + "RivetRook.py")
+        head = _http_get(_REPO_RAW_URL + "RivetRook.py", max_bytes=_SELF_UPDATE_HEAD_BYTES)
     except Exception:
         return None
-    m = _VERSION_ASSIGN_RE.search(source)
+    m = _VERSION_ASSIGN_RE.search(head)
     if not m or not is_update_available(__version__, m.group(1)):
         return None
-    return m.group(1), source
+    return m.group(1)
 
 
 def _write_files_atomically(files: Dict[Path, str]) -> None:
@@ -1909,7 +2002,7 @@ def _write_files_atomically(files: Dict[Path, str]) -> None:
                     pass
 
 
-def apply_self_update(remote_version: str, source: str, update_config: bool) -> List[str]:
+def apply_self_update(remote_version: str, update_config: bool) -> List[str]:
     """Update RivetRook in place: ``git pull`` in a clone, file download otherwise.
 
     Returns an empty list on success, or error detail lines on failure.
@@ -1938,9 +2031,13 @@ def apply_self_update(remote_version: str, source: str, update_config: bool) -> 
         return []
 
     # Plain copy: download and validate everything before touching any file.
-    files: Dict[Path, str] = {script_path: source}
     try:
+        source = _http_get(_REPO_RAW_URL + "RivetRook.py")
+        m = _VERSION_ASSIGN_RE.search(source)
+        if not m or not is_update_available(__version__, m.group(1)):
+            return [_t("self_update_download_stale", remote_version)]
         compile(source, str(script_path), "exec")
+        files: Dict[Path, str] = {script_path: source}
         if update_config:
             cfg_text = _http_get(_REPO_RAW_URL + "config.json")
             json.loads(cfg_text)
@@ -1974,7 +2071,7 @@ def offer_self_update(update_thread: threading.Thread, result: List, custom_conf
         spin.join()
     if not result or result[0] is None:
         return
-    remote_version, source = result[0]
+    remote_version = result[0]
     versions = "{}  {}  {}".format(
         _pill("v" + __version__, _RGB_BORDER), _accent("→"), _pill("v" + remote_version, _GRAD[3])
     )
@@ -1994,7 +2091,7 @@ def offer_self_update(update_thread: threading.Thread, result: List, custom_conf
     )
     spin.start()
     try:
-        errors = apply_self_update(remote_version, source, update_config=not custom_config)
+        errors = apply_self_update(remote_version, update_config=not custom_config)
     finally:
         stop.set()
         spin.join()
@@ -2455,6 +2552,7 @@ def ensure_prerequisite(
         print("  {} {}".format(_warn("⚠"), _t("elevating_sudo")))
 
     result = run_install_command(elevated, os_name, _t("installing", pre_name))
+    invalidate_profile_cache()
 
     if os_name == "windows":
         refresh_windows_path_from_registry()
@@ -2547,6 +2645,10 @@ def manage_tools(config: Dict, os_name: str, linux_family: Optional[str]) -> Non
     # Unified ordered map: CLI tools first, then IDEs (indices follow in sequence)
     all_tools: Dict = {**tools, **ides}
     names = list(all_tools.keys())
+    # Probe every tool binary in one login shell instead of one shell each.
+    register_profile_binaries(
+        first_command_token(b["run"]) for b in all_tools.values() if b.get("run")
+    )
 
     def _infer_uninstall_cmd_from_install(install_cmd: Optional[str]) -> Optional[str]:
         if not install_cmd:
@@ -2781,6 +2883,7 @@ def manage_tools(config: Dict, os_name: str, linux_family: Optional[str]) -> Non
         is_live = _is_live_cmd(action_cmd)
         label = "{} {}".format(action_label_map[action_key], selected)
         result = run_install_command(action_cmd, os_name, label)
+        invalidate_profile_cache()
 
         if result.returncode == 0:
             # On Windows, uninstallers/installers often update PATH in the

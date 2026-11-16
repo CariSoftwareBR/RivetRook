@@ -18,7 +18,7 @@
 - If `uninstall` is omitted, uninstall is inferred from `install` only for known patterns (`winget`, `brew`, `npm`, `bun`, `apt-get`, `dnf`/`yum`, `pacman`).
 
 ## Releases and self-update
-- `__version__` at the top of `src/RivetRook.py` drives self-update: on startup the app fetches `src/RivetRook.py` from GitHub `main` and offers to update when the published `__version__` is higher. Bump it on every release, or users are never notified.
+- `__version__` at the top of `src/RivetRook.py` drives self-update: on startup the app fetches the head of `src/RivetRook.py` (HTTP Range, 4 KB) from GitHub `main` and offers to update when the published `__version__` is higher. Bump it on every release, or users are never notified.
 - Update path: `git pull --ff-only` only when the script is at `<root>/src/RivetRook.py` of a clone whose `origin` is `CariSoftwareBR/RivetRook` (or the pre-move `paulocarinhena/RivetRook`); otherwise download + validate + atomic swap of `RivetRook.py` and the default `config.json`. `RIVETROOK_NO_UPDATE=1` disables it.
 
 ## Docs and install surface
@@ -33,4 +33,4 @@
 ## Platform behavior to preserve
 - Windows command execution is via PowerShell (`pwsh` preferred); do not replace with `cmd` semantics when editing command runners.
 - `needs_git` enforcement only applies on Windows (with optional winget Git install flow).
-- npm global install/upgrade paths include Node major-version gating (v20+) and npm user-prefix remediation; avoid bypassing this flow for npm-based tools.
+- npm global install/upgrade paths include Node major-version gating (v24+) and npm user-prefix remediation; avoid bypassing this flow for npm-based tools.

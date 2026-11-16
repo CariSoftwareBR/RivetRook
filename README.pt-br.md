@@ -8,7 +8,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.8%2B-A78BFA?style=flat-square&logo=python&logoColor=white" alt="Python 3.8+">
-  <img src="https://img.shields.io/badge/node.js-20%2B-60A5FA?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js 20+">
+  <img src="https://img.shields.io/badge/node.js-24%2B-60A5FA?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js 24+">
   <img src="https://img.shields.io/badge/windows%20·%20macOS%20·%20linux-22D3EE?style=flat-square&logo=windowsterminal&logoColor=white" alt="Windows · macOS · Linux">
   <img src="https://img.shields.io/badge/licen%C3%A7a-GPL--3.0-34D399?style=flat-square" alt="Licença GPL-3.0">
 </p>
@@ -60,7 +60,7 @@ python3 RivetRook/src/RivetRook.py        # Windows: python RivetRook\src\RivetR
 
 Para abrir com dois cliques, use `src/Execute_RivetRook.bat` (Windows) ou `src/Execute_RivetRook.sh` (Linux/macOS). Para ter o comando `rivetrook` em qualquer terminal, siga o [`INSTALLATION.md`](INSTALLATION.md).
 
-> **Requisitos:** Python 3.8+. O Node.js 20+ é instalado automaticamente na primeira execução, se faltar.
+> **Requisitos:** Python 3.8+. O Node.js 24+ é instalado automaticamente na primeira execução, se faltar.
 
 ## 🧭 Como usar
 
