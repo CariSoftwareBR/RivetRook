@@ -29,7 +29,7 @@
 > 🤖 *AI agents: the installation runbook is [`INSTALLATION.md`](INSTALLATION.md).*
 
 <p align="center">
-  <img src="assets/demo-v1.1.0.svg" alt="Animated RivetRook terminal demo" width="100%">
+  <img src="assets/demo-v1.2.0.svg" alt="Animated RivetRook terminal demo" width="100%">
 </p>
 
 ## ✦ Highlights
