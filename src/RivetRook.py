@@ -13,7 +13,7 @@ Config: src/config.json (tools, i18n strings, prerequisite)
 Author: Paulo Carinhena (https://github.com/paulocarinhena)
 """
 
-__version__ = "1.2.3"
+__version__ = "1.2.4"
 
 import json
 import os
@@ -737,25 +737,33 @@ def run_command_live(
     )
 
 
+# Any terminal control sequence a child process may print (colors, cursor
+# moves, OSC titles): stripped before showing its output as a status hint.
+_CHILD_CTRL_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b.")
+
+
+def _fmt_elapsed(seconds: float) -> str:
+    seconds = int(seconds)
+    if seconds < 60:
+        return "{}s".format(seconds)
+    return "{}m {:02d}s".format(seconds // 60, seconds % 60)
+
+
 def run_command_progress(
     command: str, os_name: str, label: str
 ) -> subprocess.CompletedProcess:
-    """Run *command* with a spinner/progress-bar overlay in the terminal.
+    """Run *command* with an animated status line that never freezes.
 
-    Captures stdout+stderr from the child process and uses the output to
-    drive a real-time progress bar when percentage strings (e.g. "47%") are
-    detected, or a spinner otherwise.  The last 20 lines of output are kept
-    and printed on failure to help with debugging.
+    A reader thread drains the child's stdout+stderr in raw chunks (so
+    ``\r``-only progress updates count, not just full lines), while the main
+    thread redraws the status line ~11 times a second regardless of output:
+    spinner, label, elapsed time and the latest output line, or a progress bar
+    when the output reports percentages. Silent phases (downloads, builds) no
+    longer look like a hang. The last lines of output are printed on failure.
 
     Returns a ``CompletedProcess`` with returncode; stdout/stderr are None
     (consumed internally to drive the progress display).
     """
-    stop_ev = threading.Event()
-    spin_thread = threading.Thread(
-        target=_run_spinner, args=(label, stop_ev), daemon=True,
-    )
-    spin_thread.start()
-
     if os_name == "windows":
         cmd = [
             _PS_EXE,
@@ -770,10 +778,6 @@ def run_command_progress(
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
-            encoding="utf-8",
-            errors="replace",
             creationflags=_WIN_NO_WINDOW,
         )
     else:
@@ -783,68 +787,101 @@ def run_command_progress(
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
         )
 
     percent_re = re.compile(r"(\d{1,3})%")
-    last_lines = deque(maxlen=20)
-    last_percent = 0
-    has_percent = False
-    spin_idx = 0
-    early_spinner_stopped = False
+    last_lines: deque = deque(maxlen=20)
+    state = {"percent": None, "line": ""}
 
-    if process.stdout is not None:
-        for line in process.stdout:
-            # Stop the early spinner on the first output line
-            if not early_spinner_stopped:
-                stop_ev.set()
-                spin_thread.join()
-                early_spinner_stopped = True
+    def _handle(raw: bytes) -> None:
+        text = _CHILD_CTRL_RE.sub("", raw.decode("utf-8", errors="replace")).strip()
+        if not text:
+            return
+        last_lines.append(text)
+        state["line"] = text
+        matches = percent_re.findall(text)
+        if matches:
+            current = int(matches[-1])
+            if 0 <= current <= 100:
+                state["percent"] = max(state["percent"] or 0, min(current, 99))
 
-            clean = line.rstrip("\n")
-            if clean:
-                last_lines.append(clean)
+    def _reader() -> None:
+        stream = process.stdout
+        if stream is None:
+            return
+        fd = stream.fileno()
+        pending = b""
+        while True:
+            try:
+                chunk = os.read(fd, 4096)
+            except OSError:
+                break
+            if not chunk:
+                break
+            pending += chunk
+            pieces = re.split(rb"[\r\n]", pending)
+            pending = pieces.pop()
+            for piece in pieces:
+                _handle(piece)
+        if pending:
+            _handle(pending)
 
-            matches = percent_re.findall(line)
-            if matches:
-                current = int(matches[-1])
-                if 0 <= current <= 100:
-                    has_percent = True
-                    current = min(current, 99)
-                    last_percent = max(last_percent, current)
-                    print(_render_bar(label, last_percent), end="", flush=True)
-            else:
-                spin_idx += 1
-                if _USE_COLOR:
-                    print(
-                        "\r  {} {}".format(_spin_frame(spin_idx), _muted(label + "…")),
-                        end="",
-                        flush=True,
-                    )
-                else:
-                    print(
-                        "\r  [{}] {}...".format(_SPINNER[spin_idx % len(_SPINNER)], label),
-                        end="",
-                        flush=True,
-                    )
+    reader = threading.Thread(target=_reader, daemon=True)
+    reader.start()
 
-    # Ensure spinner is stopped even if process had no output at all
-    if not early_spinner_stopped:
-        stop_ev.set()
-        spin_thread.join()
+    started = time.time()
+    width = max(20, _term_width() - 1)
 
-    rc = process.wait()
-
-    if has_percent:
-        if rc == 0:
-            print(_render_bar(label, 100))
+    def _draw(frame_idx: int) -> None:
+        elapsed = _dim(_fmt_elapsed(time.time() - started))
+        frame = _spin_frame(frame_idx) if _USE_COLOR else "[{}]".format(
+            _SPINNER[frame_idx % len(_SPINNER)]
+        )
+        if state["percent"] is not None:
+            line = _render_bar(label, state["percent"], spinner=frame).lstrip("\r")
+            line = "{}  {}".format(line, elapsed)
         else:
-            print()
+            line = "  {} {}  {}".format(frame, _muted(label + "…"), elapsed)
+            if state["line"]:
+                line += "  {} {}".format(_border("·"), _dim(state["line"]))
+        line = _truncate(line, width)
+        if _USE_COLOR:
+            print("\r" + line + "\033[K", end="", flush=True)
+        else:
+            print("\r" + _ljust(line, width), end="", flush=True)
+
+    def _clear_line() -> None:
+        if _USE_COLOR:
+            print("\r\033[K", end="", flush=True)
+        else:
+            print("\r" + " " * width + "\r", end="", flush=True)
+
+    i = 0
+    exited_at: Optional[float] = None
+    try:
+        while reader.is_alive():
+            _draw(i)
+            i += 1
+            reader.join(0.09)
+            # A background process the command spawned may keep the pipe open
+            # after the command itself exits: do not wait for it forever.
+            if process.poll() is not None:
+                exited_at = exited_at or time.time()
+                if time.time() - exited_at > 2.0:
+                    break
+        rc = process.wait()
+    except KeyboardInterrupt:
+        _clear_line()
+        raise
+
+    _clear_line()
+    elapsed = _dim("({})".format(_fmt_elapsed(time.time() - started)))
+    if state["percent"] is not None and rc == 0:
+        print("{}  {}".format(_render_bar(label, 100).lstrip("\r"), elapsed), flush=True)
     else:
         sym = _ok("✔") if rc == 0 else _err("✘")
         status = _ok(_t("done")) if rc == 0 else _err(_t("failed"))
-        print("\r  {} {} {}{}".format(sym, label, status, " " * 20), flush=True)
+        print("  {} {} {}  {}".format(sym, label, status, elapsed), flush=True)
 
     if rc != 0 and last_lines:
         print("\n  {}".format(_warn(_t("last_output_lines"))))
@@ -2353,95 +2390,68 @@ def configure_api_key(tool_name: str, cfg: Dict, os_name: str) -> None:
 # ─── Tools Table ──────────────────────────────────────────────────────────────
 
 
-def _status_cell(version: Optional[str], access: str) -> Tuple[str, str]:
+# ─── Tools Table ──────────────────────────────────────────────────────────────
+#
+# Each section is a rounded card: a single outer border, no inner vertical
+# rules, a muted header with a thin divider and naturally sized columns shared
+# by both sections so the cards line up. Installed tools stand out (bold name,
+# green dot, cyan version); missing ones fade to gray.
+
+_TABLE_GAP = "   "   # space between columns
+_TABLE_PAD = 2       # space between the card border and the content
+_RGB_FADED: RGB = (128, 141, 160)  # names of tools that are not installed
+
+
+def _status_cell(
+    version: Optional[str], access: str, compact: bool = False
+) -> Tuple[str, int]:
+    """Return the styled status cell and its visible width."""
     if version:
         if access == "profile":
-            return _warn("◐"), _warn(_t("shell_profile"))
-        return _ok("●"), _ok(_t("status_installed"))
-    return _muted("○"), _muted(_t("status_not_installed"))
+            icon, label, paint = "◐", _t("shell_profile"), _warn
+        else:
+            icon, label, paint = "●", _t("status_installed"), _ok
+        text = icon if compact else "{} {}".format(icon, label)
+        return paint(text), _vlen(text)
+    return _border("○"), 1
 
 
-def _tool_row(
-    idx: int,
-    name: str,
-    block: Dict,
-    version: Optional[str],
-    latest: Optional[str],
-    os_name: str,
-    name_w: int,
-    stat_w: int,
-    ver_w: int,
-    num_w: int,
-    show_author: bool = True,
-    compact_status: bool = False,
-) -> None:
-    access = tool_access_state(block, os_name)
-    icon, status_label = _status_cell(version, access)
+def _version_text(version: Optional[str], latest: Optional[str]) -> Tuple[str, str]:
+    """Return (plain text, kind) for the version cell.
 
-    cfg = block.get("configure")
-    if version and cfg:
-        key_badge = " " + (_ok("⚷") if _api_key_configured(cfg) else _warn("⚷"))
-    else:
-        key_badge = ""
+    *kind* is "outdated", "ok" or "none". Raw ``--version`` output may carry
+    extra text ("2.1.327 (Claude Code)", "Zed 1.21.0 <hash> – <path>"), so
+    only the bare number is shown; a tool without a parsable version shows "—".
+    """
+    if is_update_available(version, latest):
+        return "↑ {} → {}".format(installed_version_number(version), latest), "outdated"
+    number = installed_version_number(version)
+    if number:
+        return number, "ok"
+    return "—", "none"
 
-    author = block.get("author", "")
-    num_str = _c(_A.ACCENT, _rjust(str(idx), num_w))
-    name_lbl = _bold(name) if version else name
-    if author and show_author:
-        name_lbl = "{} {}".format(name_lbl, _muted("· " + author))
-    name_str = _ljust(_truncate(name_lbl, name_w), name_w)
-    status_txt = icon + key_badge if compact_status else icon + " " + status_label + key_badge
-    stat_str = _ljust(status_txt, stat_w + 2)
 
-    outdated = is_update_available(version, latest)
-    if outdated:
-        version_txt = "↑ {} → {}".format(installed_version_number(version), latest)
-    else:
-        # Show the bare number: raw --version output may carry extra text
-        # ("2.1.327 (Claude Code)", "Zed 1.21.0 <hash> – <path>") that would be
-        # cut mid-number by the column width. Placeholders like "installed" stay.
-        version_txt = installed_version_number(version) or version or "—"
-    if len(version_txt) > ver_w:
-        version_txt = version_txt[: max(1, ver_w - 1)] + "…"
-    ver_str = _ljust(version_txt, ver_w)
-    if outdated:
-        ver_str = _c(_A.BYELLOW + _A.BOLD, ver_str)
-    elif version:
-        ver_str = _c(_A.CYAN, ver_str)
-    else:
-        ver_str = _border(ver_str)
+def _style_version(text: str, kind: str) -> str:
+    if kind == "outdated":
+        arrow, rest = text.split(" ", 1)
+        current, _, newest = rest.partition(" → ")
+        return "{} {} {} {}".format(
+            _warn(arrow), _c(_A.BYELLOW, current), _border("→"), _c(_A.BYELLOW + _A.BOLD, newest)
+        )
+    if kind == "ok":
+        return _c(_A.CYAN, text)
+    return _border(text)
 
+
+def _card_line(cells: List[str], widths: List[int], aligns: str) -> str:
+    """One row of a card: cells padded to *widths*, joined by the column gap."""
+    parts = []
+    for cell, w, align in zip(cells, widths, aligns):
+        cell = _truncate(cell, w)
+        parts.append(_rjust(cell, w) if align == "r" else _ljust(cell, w))
+    pad = " " * _TABLE_PAD
     v = _border("│")
-    print("  {v} {} {v} {} {v} {} {v} {} {v}".format(num_str, name_str, stat_str, ver_str, v=v))
-
-
-def _table_hline(left: str, mid: str, right: str, fill: str, col_widths: List[int]) -> str:
-    parts = [left]
-    for i, w in enumerate(col_widths):
-        if i > 0:
-            parts.append(mid)
-        parts.append(fill * (w + 2))
-    parts.append(right)
-    return "  " + _border("".join(parts))
-
-
-def _section_label(label: str, summary: str, col_widths: List[int]) -> None:
-    total_inner = sum(w + 2 for w in col_widths) + len(col_widths) + 1
-    styled = "{} {}".format(_accent("◆"), _gradient(label, bold=True))
-    if summary:
-        styled += "  " + summary
-    fill_len = max(0, total_inner - _vlen(styled) - 1)
-    print()
-    print("  {} {}".format(styled, _border("─" * fill_len)))
-
-
-def _section_header(col_widths: List[int]) -> None:
-    headers = [_t("col_num"), _t("col_tool"), _t("col_status"), _t("col_version")]
-    styled = [_ljust(_c(_A.BOLD + _A.GRAY, h.upper()), w) for h, w in zip(headers, col_widths)]
-    v = _border("│")
-    print(_table_hline("╭", "┬", "╮", "─", col_widths))
-    print("  {v} {} {v} {} {v} {} {v} {} {v}".format(*styled, v=v))
-    print(_table_hline("├", "┼", "┤", "─", col_widths))
+    return "  {}{}{}{}{}".format(v, pad, _TABLE_GAP.join(parts), pad, v)
 
 
 def print_tools_table(
@@ -2451,109 +2461,121 @@ def print_tools_table(
     os_name: str,
     latest_map: Optional[LatestMap] = None,
 ) -> None:
-    """Render the full tools table to stdout, split into CLI Tools and IDEs sections.
-
-    Each section gets its own bordered table with header.  Column widths are
-    computed dynamically to fit the longest name.
-    """
+    """Render the tools as two rounded cards (CLI tools and IDEs) plus a legend."""
+    latest_map = latest_map or {}
     all_tools = {**tools, **ides}
-    header_labels = [_t("col_num"), _t("col_tool"), _t("col_status"), _t("col_version")]
+    numbered = list(enumerate(all_tools.items(), start=1))
+    access = {name: tool_access_state(block, os_name) for name, block in all_tools.items()}
+    versions = {
+        name: _version_text(version_map.get(name), latest_map.get(name)) for name in all_tools
+    }
 
-    def _name_width(with_author: bool) -> int:
-        labels = [
-            "{} · {}".format(n, b["author"]) if with_author and b.get("author") else n
-            for n, b in all_tools.items()
-        ]
-        return max(max(_vlen(lbl) for lbl in labels) + 1, _vlen(header_labels[1]))
+    def _key_badge(name: str, block: Dict) -> str:
+        cfg = block.get("configure")
+        if version_map.get(name) and cfg:
+            return " " + (_ok("⚷") if _api_key_configured(cfg) else _warn("⚷"))
+        return ""
 
-    # Fit the table to the terminal: borders + padding take 15 columns and the
-    # last column is left free to avoid auto-wrap. Degrade progressively:
-    # narrower version column, then no author, then icon-only status.
-    budget = _term_width() - 16
-    num_w = max(3, _vlen(header_labels[0]))
-    show_author, compact_status = True, False
-    name_w = _name_width(True)
-    stat_w = max(16, _vlen(header_labels[2]))
-    ver_w = max(36, _vlen(header_labels[3]))
+    headers = [_t("col_num"), _t("col_tool"), _t("col_author"), _t("col_status"), _t("col_version")]
+    headers = [h.upper() for h in headers]
 
-    def _total() -> int:
-        return num_w + name_w + stat_w + 2 + ver_w
+    def _widths(show_author: bool, compact: bool) -> List[int]:
+        num_w = max(len(str(len(numbered))), _vlen(headers[0]))
+        name_w = max([_vlen(n) for n in all_tools] + [_vlen(headers[1])])
+        author_w = max([_vlen(b.get("author", "")) for b in all_tools.values()] + [_vlen(headers[2])])
+        stat_w = max(
+            [
+                _status_cell(version_map.get(n), access[n], compact)[1] + _vlen(_key_badge(n, b))
+                for n, b in all_tools.items()
+            ]
+            + [_vlen(headers[3])]
+        )
+        ver_w = max([_vlen(t) for t, _ in versions.values()] + [_vlen(headers[4])])
+        return [num_w, name_w, author_w if show_author else 0, stat_w, ver_w]
 
-    if _total() > budget:
-        ver_w = max(16, budget - (_total() - ver_w))
-    if _total() > budget:
+    def _card_width(widths: List[int]) -> int:
+        cols = [w for w in widths if w]
+        return sum(cols) + len(_TABLE_GAP) * (len(cols) - 1) + 2 * _TABLE_PAD + 2
+
+    # Fit the card to the terminal (keeping the last column free to avoid
+    # auto-wrap): drop the author column first, then shorten the status to its
+    # icon, then let the version column truncate.
+    budget = _term_width() - 3
+    show_author, compact = True, False
+    widths = _widths(show_author, compact)
+    if _card_width(widths) > budget:
         show_author = False
-        name_w = _name_width(False)
-    if _total() > budget:
-        ver_w = max(10, budget - (_total() - ver_w))
-    if _total() > budget:
-        compact_status = True
-        stat_w = max(1, _vlen(header_labels[2]) - 2)
-    # Hand any room freed by the steps above back to the version column.
-    ver_w = max(_vlen(header_labels[3]), min(36, budget - (_total() - ver_w)))
-    stat_col_w = stat_w + 2
-    col_widths = [num_w, name_w, stat_col_w, ver_w]
+        widths = _widths(show_author, compact)
+    if _card_width(widths) > budget:
+        compact = True
+        widths = _widths(show_author, compact)
+    if _card_width(widths) > budget:
+        widths[4] = max(_vlen(headers[4]), widths[4] - (_card_width(widths) - budget))
+
+    cols = [i for i, w in enumerate(widths) if w]
+    col_w = [widths[i] for i in cols]
+    aligns = "".join("r" if i == 0 else "l" for i in cols)
+    inner = _card_width(widths) - 2
 
     def _summary(names: List[str]) -> str:
         installed = sum(1 for n in names if version_map.get(n))
         parts = [_muted(_t("summary_installed", installed, len(names)))]
-        updates = sum(
-            1 for n in names
-            if is_update_available(version_map.get(n), (latest_map or {}).get(n))
-        )
+        updates = sum(1 for n in names if versions[n][1] == "outdated")
         if updates:
             parts.append(_warn(_t("summary_updates", updates)))
         return _border(" · ").join(parts)
 
-    def _render_section(
-        label: str, indexed_names: List[Tuple[int, str]], src: Dict
-    ) -> None:
-        _section_label(label, _summary([n for _, n in indexed_names]), col_widths)
-        _section_header(col_widths)
-        for idx, name in indexed_names:
-            _tool_row(
-                idx,
-                name,
-                src[name],
-                version_map.get(name),
-                (latest_map or {}).get(name),
-                os_name,
-                name_w,
-                stat_w,
-                ver_w,
-                num_w,
-                show_author,
-                compact_status,
-            )
-        print(_table_hline("╰", "┴", "╯", "─", col_widths))
+    def _render(label: str, rows: List[Tuple[int, Tuple[str, Dict]]]) -> None:
+        names = [name for _, (name, _) in rows]
+        title = "{} {}".format(_accent("◆"), _gradient(label, bold=True))
+        summary = _summary(names)
+        gap = max(2, inner + 2 - _vlen(title) - _vlen(summary))
+        print()
+        print("  {}{}{}".format(title, " " * gap, summary))
+        blank = "  {}{}{}".format(_border("│"), " " * inner, _border("│"))
+        print("  " + _border("╭" + "─" * inner + "╮"))
+        print(blank)
+        header_cells = [_c(_A.BOLD + _A.GRAY, headers[i]) for i in cols]
+        print(_card_line(header_cells, col_w, aligns))
+        rule = " " * _TABLE_PAD + _c(_fg(_RGB_TRACK, _A.GRAY), "─" * (inner - 2 * _TABLE_PAD)) + " " * _TABLE_PAD
+        print("  {}{}{}".format(_border("│"), rule, _border("│")))
+        for idx, (name, block) in rows:
+            version = version_map.get(name)
+            status, _ = _status_cell(version, access[name], compact)
+            text, kind = versions[name]
+            if version:
+                num = _c(_A.ACCENT, str(idx))
+                name_txt = _c(_A.BOLD + _A.BWHITE, name)
+                author = _muted(block.get("author", ""))
+            else:
+                num = _border(str(idx))
+                name_txt = _c(_fg(_RGB_FADED, _A.GRAY), name)
+                author = _border(block.get("author", ""))
+            cells_all = [num, name_txt, author, status + _key_badge(name, block), _style_version(text, kind)]
+            print(_card_line([cells_all[i] for i in cols], col_w, aligns))
+        print(blank)
+        print("  " + _border("╰" + "─" * inner + "╯"))
 
-    # CLI Tools section
-    cli_names = list(tools.keys())
-    cli_rows = [(i + 1, n) for i, n in enumerate(cli_names)]
-    _render_section(_t("section_cli"), cli_rows, tools)
-
-    # IDEs section
+    cli_rows = numbered[: len(tools)]
+    _render(_t("section_cli"), cli_rows)
     if ides:
-        ide_names = list(ides.keys())
-        ide_offset = len(cli_names)
-        ide_rows = [(ide_offset + i + 1, n) for i, n in enumerate(ide_names)]
-        _render_section(_t("section_ides"), ide_rows, ides)
+        _render(_t("section_ides"), numbered[len(tools):])
 
-    # Legend
+    # Legend, flowed over several lines when the terminal is narrow.
     print()
     legend_parts = [
         "{} {}".format(_ok("●"), _muted(_t("legend_installed"))),
         "{} {}".format(_warn("◐"), _muted(_t("legend_profile"))),
-        "{} {}".format(_muted("○"), _muted(_t("legend_not_installed"))),
+        "{} {}".format(_border("○"), _muted(_t("legend_not_installed"))),
         "{} {}".format(_warn("↑"), _muted(_t("legend_update_available"))),
         "{} {}".format(_ok("⚷"), _muted(_t("legend_api_key"))),
     ]
-    # Flow the legend over several lines when the terminal is narrow.
+    sep = "   "
     max_w = max(20, _term_width() - 4)
     legend_lines: List[str] = []
     for part in legend_parts:
-        if legend_lines and _vlen(legend_lines[-1]) + 3 + _vlen(part) <= max_w:
-            legend_lines[-1] += "   " + part
+        if legend_lines and _vlen(legend_lines[-1]) + len(sep) + _vlen(part) <= max_w:
+            legend_lines[-1] += sep + part
         else:
             legend_lines.append(part)
     for ln in legend_lines:
@@ -2632,12 +2654,16 @@ def ensure_prerequisite(
 # ─── Tool Management ──────────────────────────────────────────────────────────
 
 
+# Typed at the tool prompt to upgrade every outdated tool ("atualizar" / "all").
+UPDATE_ALL_KEY = "a"
+
+
 def choose_tool(names: List[str]) -> Optional[List[str]]:
     """
     Prompt the user to pick one or more tools by number or name.
     Accepts a single value ("1", "claude") or a comma/space-separated list ("1,3,5" or "1 3 5").
-    Returns a list of tool names, or None to quit.
-    Re-prompts on invalid input instead of returning a sentinel.
+    Returns a list of tool names, ``[UPDATE_ALL_KEY]`` for "update everything",
+    or None to quit. Re-prompts on invalid input.
     """
     while True:
         raw = input(
@@ -2648,6 +2674,8 @@ def choose_tool(names: List[str]) -> Optional[List[str]]:
 
         if not raw:
             return None
+        if raw.lower() == UPDATE_ALL_KEY:
+            return [UPDATE_ALL_KEY]
 
         # Split on commas and/or spaces to support "1,3,5" or "1 3 5" or "1, 3, 5"
         tokens = [t.strip() for t in re.split(r"[,\s]+", raw) if t.strip()]
@@ -2870,8 +2898,13 @@ def manage_tools(config: Dict, os_name: str, linux_family: Optional[str]) -> Non
             {"1": "install", "2": "upgrade", "3": "uninstall"}, _t("multi_action_hint_3")
         )
 
-    def _execute_action(selected: str, action_key: str) -> None:
-        """Execute action_key for a single tool. Mutates _pending_reload as needed."""
+    def _execute_action(selected: str, action_key: str, batch: bool = False) -> bool:
+        """Execute action_key for a single tool. Mutates _pending_reload as needed.
+
+        In *batch* mode (several tools in a row) the shell reload is not
+        offered per tool: it would replace this process and abort the rest of
+        the batch. It is flagged instead and happens when RivetRook exits.
+        """
         global _pending_reload
 
         tool_block = all_tools[selected]
@@ -2896,7 +2929,7 @@ def manage_tools(config: Dict, os_name: str, linux_family: Optional[str]) -> Non
                     _err("✘"), _bold(selected), _t("no_action_cmd", action_name)
                 )
             )
-            return
+            return False
 
         # For tools that require Git on Windows (e.g. Claude Code needs git-bash)
         if (
@@ -3035,7 +3068,7 @@ def manage_tools(config: Dict, os_name: str, linux_family: Optional[str]) -> Non
                     if bin_path:
                         print("  {}   {}".format(_dim(" "), _t("binary_label", _dim(bin_path))))
                     _pending_reload = True
-                    if ask_yes_no(
+                    if not batch and ask_yes_no(
                         _t("reload_shell", _bold(run_bin)),
                         default_yes=True,
                     ):
@@ -3044,6 +3077,7 @@ def manage_tools(config: Dict, os_name: str, linux_family: Optional[str]) -> Non
                 # ── Offer API key setup right after a fresh install ──────────────
                 if (
                     action_key == "install"
+                    and not batch
                     and cfg_block
                     and not _api_key_configured(cfg_block)
                 ):
@@ -3130,6 +3164,55 @@ def manage_tools(config: Dict, os_name: str, linux_family: Optional[str]) -> Non
             if i < attempts - 1:
                 time.sleep(0.8)
 
+    def _run_batch(selections: List[str], action_key: str) -> bool:
+        """Run *action_key* on each tool in turn and print a summary at the end."""
+        print(
+            "\n  {} {}".format(
+                _info("→"),
+                _t("multi_starting", len(selections), ", ".join(_bold(s) for s in selections)),
+            )
+        )
+        ok: List[str] = []
+        failed: List[str] = []
+        for i, selected in enumerate(selections, 1):
+            print("\n  {}".format(_dim(_t("multi_progress", i, len(selections), selected))))
+            if _execute_action(selected, action_key, batch=True):
+                ok.append(selected)
+                _refresh_selected_versions([selected], action_key)
+            else:
+                failed.append(selected)
+        summary = [_ok("✔ " + _t("batch_ok", len(ok)))]
+        if failed:
+            summary.append(_err("✘ " + _t("batch_failed", len(failed), ", ".join(failed))))
+        print("\n  {} {}".format(_bold(_t("batch_summary")), _border(" · ").join(summary)))
+        return bool(ok or failed)
+
+    def _outdated() -> List[str]:
+        return [n for n in names if is_update_available(version_map.get(n), latest_map.get(n))]
+
+    def _update_all() -> bool:
+        pending = _outdated()
+        if not pending:
+            print("  {} {}".format(_ok("✔"), _t("update_all_none")))
+            return False
+        name_w = max(_vlen(n) for n in pending)
+        lines: List[Optional[str]] = [""]
+        for n in pending:
+            lines.append(
+                "{}  {}  {} {}".format(
+                    _ljust(_bold(n), name_w),
+                    _c(_A.BYELLOW, installed_version_number(version_map.get(n)) or "?"),
+                    _border("→"),
+                    _c(_A.BYELLOW + _A.BOLD, latest_map.get(n) or "?"),
+                )
+            )
+        lines.append("")
+        print()
+        _panel(lines, title=_gradient(_t("update_all_title", len(pending)), bold=True), min_width=48)
+        if not ask_yes_no(_t("update_all_confirm", len(pending)), default_yes=True):
+            return False
+        return _run_batch(pending, "upgrade")
+
     _clear_before_scan = False
     # Registry lookups run in the background while local versions are probed;
     # they are fetched once per session.
@@ -3150,10 +3233,33 @@ def manage_tools(config: Dict, os_name: str, linux_family: Optional[str]) -> Non
 
         print_tools_table(tools, ides, version_map, os_name, latest_map)
 
-        selections = choose_tool(names)
+        outdated = _outdated()
+        if outdated:
+            # The table already ends with a blank line.
+            print(
+                "  {} {}  {}\n".format(
+                    _warn("↑"),
+                    _warn(_t("summary_updates", len(outdated))),
+                    _muted(_t("update_all_hint", _key(UPDATE_ALL_KEY))),
+                )
+            )
+
+        while True:
+            selections = choose_tool(names)
+            if selections == [UPDATE_ALL_KEY] and not outdated:
+                # Nothing to update: say so and ask again, without redrawing.
+                print("  {} {}\n".format(_ok("✔"), _t("update_all_none")))
+                continue
+            break
         if selections is None:
             print("\n  {} {}".format(_dim("→"), _t("exiting")))
             return
+
+        if selections == [UPDATE_ALL_KEY]:
+            if _update_all():
+                _press_any_key()
+                _clear_before_scan = True
+            continue
 
         if len(selections) == 1:
             selected = selections[0]
@@ -3180,24 +3286,7 @@ def manage_tools(config: Dict, os_name: str, linux_family: Optional[str]) -> Non
             if action_key is None:
                 continue
 
-            print(
-                "\n  {} {}".format(
-                    _info("→"),
-                    _t("multi_starting", len(selections), ", ".join(_bold(s) for s in selections))
-                )
-            )
-            any_success = False
-            for i, selected in enumerate(selections, 1):
-                print(
-                    "\n  {} {}".format(
-                        _dim(_t("multi_progress", i, len(selections), selected)),
-                        ""
-                    )
-                )
-                if _execute_action(selected, action_key):
-                    any_success = True
-                    _refresh_selected_versions([selected], action_key)
-            if any_success:
+            if _run_batch(selections, action_key):
                 _press_any_key()
                 _clear_before_scan = True
 

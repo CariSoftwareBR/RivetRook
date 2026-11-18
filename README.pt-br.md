@@ -82,7 +82,7 @@ Para abrir com dois cliques, use `src/Execute_RivetRook.bat` (Windows) ou `src/E
 
 ## 🧭 Como usar
 
-Ao abrir, o RivetRook pergunta o idioma, oferece a própria atualização (se houver), verifica o Node.js e mostra o estado de todas as ferramentas. Escolha uma ou várias pelo número ou nome — `3`, `claude` ou `1,3,5` — e depois a ação: **instalar**, **atualizar**, **desinstalar** ou **configurar a chave de API**. `Enter` sem nada sai.
+Ao abrir, o RivetRook pergunta o idioma, oferece a própria atualização (se houver), verifica o Node.js e mostra o estado de todas as ferramentas. Escolha uma ou várias pelo número ou nome — `3`, `claude` ou `1,3,5` — e depois a ação: **instalar**, **atualizar**, **desinstalar** ou **configurar a chave de API**. Quando houver atualizações, digite **`a`** para atualizar de uma vez todas as ferramentas desatualizadas. Enquanto um comando roda, uma linha de status ao vivo mostra o tempo decorrido e a última saída dele, então um download demorado nunca parece travado. `Enter` sem nada sai.
 
 <details>
 <summary><b>Legenda dos ícones</b></summary>
