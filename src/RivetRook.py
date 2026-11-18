@@ -2658,6 +2658,22 @@ def ensure_prerequisite(
 UPDATE_ALL_KEY = "a"
 
 
+def tool_prompt() -> str:
+    """The main "choose a tool" prompt (also rendered by assets/make_demo.py)."""
+    return "  {} {} {} ".format(
+        _accent("❯"), _bold(_t("choose_tool")), _muted(_t("enter_to_exit"))
+    )
+
+
+def update_all_hint(count: int) -> str:
+    """Hint shown under the table when *count* tools have updates."""
+    return "  {} {}  {}".format(
+        _warn("↑"),
+        _warn(_t("summary_updates", count)),
+        _muted(_t("update_all_hint", _key(UPDATE_ALL_KEY))),
+    )
+
+
 def choose_tool(names: List[str]) -> Optional[List[str]]:
     """
     Prompt the user to pick one or more tools by number or name.
@@ -2666,11 +2682,7 @@ def choose_tool(names: List[str]) -> Optional[List[str]]:
     or None to quit. Re-prompts on invalid input.
     """
     while True:
-        raw = input(
-            "  {} {} {} ".format(
-                _accent("❯"), _bold(_t("choose_tool")), _muted(_t("enter_to_exit"))
-            )
-        ).strip()
+        raw = input(tool_prompt()).strip()
 
         if not raw:
             return None
@@ -3236,13 +3248,7 @@ def manage_tools(config: Dict, os_name: str, linux_family: Optional[str]) -> Non
         outdated = _outdated()
         if outdated:
             # The table already ends with a blank line.
-            print(
-                "  {} {}  {}\n".format(
-                    _warn("↑"),
-                    _warn(_t("summary_updates", len(outdated))),
-                    _muted(_t("update_all_hint", _key(UPDATE_ALL_KEY))),
-                )
-            )
+            print(update_all_hint(len(outdated)) + "\n")
 
         while True:
             selections = choose_tool(names)
