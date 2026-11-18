@@ -13,7 +13,7 @@ Config: src/config.json (tools, i18n strings, prerequisite)
 Author: Paulo Carinhena (https://github.com/paulocarinhena)
 """
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 
 import json
 import os
