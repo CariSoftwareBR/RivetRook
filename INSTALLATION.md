@@ -20,6 +20,21 @@ The installation:
 **Do not run `rivetrook` without arguments.** It opens an interactive menu that waits for keyboard
 input. Agents should only run `rivetrook --version`, which prints the version and exits.
 
+> **One-command install (for people).** [`install.sh`](install.sh) (Linux/macOS) and
+> [`install.ps1`](install.ps1) (Windows) automate the steps below, **installing Python without
+> asking** when it is missing (via the system package manager / `winget`, and PowerShell 7 on
+> Windows). On Linux/macOS, when `~/.local/bin` is not on the current `PATH`, they also link
+> `/usr/local/bin/rivetrook` (with `sudo`) so the command works in the same terminal.
+>
+> ```sh
+> curl -fsSL https://raw.githubusercontent.com/CariSoftwareBR/RivetRook/main/install.sh | sh
+> ```
+> ```powershell
+> irm https://raw.githubusercontent.com/CariSoftwareBR/RivetRook/main/install.ps1 | iex
+> ```
+>
+> Agents follow the steps below instead, which ask before installing system packages.
+
 ---
 
 ## 1. Check Python 3.8+
@@ -142,6 +157,10 @@ update, re-run steps 2–4.
 
 ```sh
 rm -f "$HOME/.local/bin/rivetrook"
+# Only present when the one-command installer had to link it there:
+if [ "$(readlink /usr/local/bin/rivetrook 2>/dev/null)" = "$HOME/RivetRook/bin/rivetrook" ]; then
+  sudo rm -f /usr/local/bin/rivetrook
+fi
 rm -rf "$HOME/RivetRook"
 ```
 

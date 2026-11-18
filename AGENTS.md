@@ -24,6 +24,7 @@
 ## Docs and install surface
 - `README.md` (en, default) and `README.pt-br.md` (pt-BR) are mirrors: change both together. Images live in `assets/`; when the UI changes, regenerate the screenshot under a new versioned name (`assets/screenshot-vX.Y.Z.png`) — GitHub's CDN keeps serving stale copies of a reused file name. The animated README demo is generated from the real UI by `python assets/make_demo.py` (local-only, git-ignored; writes `assets/demo-v<__version__>.svg`); regenerate it on release and update both READMEs to the new name.
 - `INSTALLATION.md` is the runbook AI agents follow ("Install RivetRook: <repo URL>"). Keep its commands idempotent and in sync with `bin/rivetrook` (POSIX sh, LF) and `bin/rivetrook.cmd` (CRLF); `.gitattributes` pins those line endings.
+- `install.sh` (POSIX sh, LF) and `install.ps1` (Windows PowerShell 5.1+, ASCII, never `exit` — it runs under `irm | iex`) are the one-command installers advertised at the top of both READMEs; they automate `INSTALLATION.md` (plus installing Python, and pwsh on Windows, without asking), so keep the three in sync. They install into `~/RivetRook` as a git clone or a plain copy — both are what the startup self-update expects.
 - `rivetrook --version` (`-V`) prints `RivetRook <__version__>` and exits without the interactive UI; installers rely on it.
 
 ## Strings and UX changes
