@@ -19,6 +19,22 @@
 
 <br>
 
+## ⚡ Instale com um comando
+
+**Linux / macOS** (terminal):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/CariSoftwareBR/RivetRook/main/install.sh | sh
+```
+
+**Windows** (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/CariSoftwareBR/RivetRook/main/install.ps1 | iex
+```
+
+Só isso — depois é só digitar **`rivetrook`**. O instalador cuida de tudo o que for preciso (inclusive do Python, se faltar) e o RivetRook se mantém atualizado sozinho: a cada início ele verifica se há versão nova e oferece a atualização.
+
 > [!TIP]
 > **Instale com o seu agente de IA.** Cole no Claude Code, Codex, Gemini CLI, Cursor ou em qualquer outro agente:
 >
@@ -49,6 +65,8 @@
 
 ## 🚀 Instalação
 
+**Com um comando** — use os comandos do [início desta página](#-instale-com-um-comando). Rodar de novo atualiza uma instalação existente.
+
 **Com um agente de IA** — use a frase da dica acima. O agente segue o [`INSTALLATION.md`](INSTALLATION.md), deixa o comando `rivetrook` disponível no terminal e confere a instalação.
 
 **Manualmente:**
@@ -60,7 +78,7 @@ python3 RivetRook/src/RivetRook.py        # Windows: python RivetRook\src\RivetR
 
 Para abrir com dois cliques, use `src/Execute_RivetRook.bat` (Windows) ou `src/Execute_RivetRook.sh` (Linux/macOS). No Linux, gerenciadores de arquivos como o Arquivos do GNOME abrem arquivos `.sh` num editor de texto por padrão: clique com o botão direito no arquivo e escolha **Executar como um programa**, ou rode `./src/Execute_RivetRook.sh` num terminal. Para ter o comando `rivetrook` em qualquer terminal, siga o [`INSTALLATION.md`](INSTALLATION.md).
 
-> **Requisitos:** Python 3.8+. O Node.js 24+ é instalado automaticamente na primeira execução, se faltar.
+> **Requisitos:** Python 3.8+ (o instalador de um comando instala, se faltar). O Node.js 24+ é instalado automaticamente na primeira execução, se faltar.
 
 ## 🧭 Como usar
 
