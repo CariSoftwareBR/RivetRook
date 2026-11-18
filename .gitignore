@@ -211,3 +211,6 @@ release.md
 # Demo tooling (local only); banner.svg and demo-v*.svg stay tracked: the READMEs embed them
 /assets/make_demo.py
 /assets/screenshot-v*.png
+
+# Short `rivet` alias generated on Windows by the installer / app (see ensure_short_alias)
+/bin/rivet.cmd

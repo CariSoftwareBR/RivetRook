@@ -33,7 +33,7 @@ curl -fsSL https://raw.githubusercontent.com/CariSoftwareBR/RivetRook/main/insta
 irm https://raw.githubusercontent.com/CariSoftwareBR/RivetRook/main/install.ps1 | iex
 ```
 
-Só isso — depois é só digitar **`rivetrook`**. O instalador cuida de tudo o que for preciso (inclusive do Python, se faltar) e o RivetRook se mantém atualizado sozinho: a cada início ele verifica se há versão nova e oferece a atualização.
+Só isso — depois é só digitar **`rivetrook`** (ou o atalho **`rivet`**). O instalador cuida de tudo o que for preciso (inclusive do Python, se faltar) e o RivetRook se mantém atualizado sozinho: a cada início ele verifica se há versão nova e oferece a atualização.
 
 > [!TIP]
 > **Instale com o seu agente de IA.** Cole no Claude Code, Codex, Gemini CLI, Cursor ou em qualquer outro agente:
