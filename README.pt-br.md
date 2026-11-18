@@ -45,7 +45,7 @@ Só isso — depois é só digitar **`rivetrook`** (ou o atalho **`rivet`**). O 
 > 🤖 *Agentes de IA: o passo a passo de instalação está em [`INSTALLATION.md`](INSTALLATION.md).*
 
 <p align="center">
-  <img src="assets/demo-v1.2.0.svg" alt="Demonstração animada do RivetRook no terminal" width="100%">
+  <img src="assets/demo-v1.2.4.svg" alt="Demonstração animada do RivetRook no terminal" width="100%">
 </p>
 
 ## ✦ Destaques

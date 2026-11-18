@@ -45,7 +45,7 @@ That's it — then just type **`rivetrook`** (or the short **`rivet`**). The ins
 > 🤖 *AI agents: the installation runbook is [`INSTALLATION.md`](INSTALLATION.md).*
 
 <p align="center">
-  <img src="assets/demo-v1.2.0.svg" alt="Animated RivetRook terminal demo" width="100%">
+  <img src="assets/demo-v1.2.4.svg" alt="Animated RivetRook terminal demo" width="100%">
 </p>
 
 ## ✦ Highlights
