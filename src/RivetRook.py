@@ -3223,5 +3223,18 @@ def main() -> None:
         _exec_shell_reload(os_name)
 
 
+def _abort(code: int) -> None:
+    """Exit cleanly when stdin closes (no TTY, piped input) or on Ctrl+C."""
+    # Before the language is chosen no strings are loaded: say it in both.
+    msg = _t("exiting") if _STRINGS else "Encerrando. / Exiting."
+    print("\n\n  {}\n".format(_muted(msg)), flush=True)
+    sys.exit(code)
+
+
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except EOFError:
+        _abort(1)
+    except KeyboardInterrupt:
+        _abort(130)

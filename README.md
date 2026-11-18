@@ -58,7 +58,7 @@ git clone https://github.com/CariSoftwareBR/RivetRook.git
 python3 RivetRook/src/RivetRook.py        # Windows: python RivetRook\src\RivetRook.py
 ```
 
-To launch with a double-click, use `src/Execute_RivetRook.bat` (Windows) or `src/Execute_RivetRook.sh` (Linux/macOS). To get a `rivetrook` command in every terminal, follow [`INSTALLATION.md`](INSTALLATION.md).
+To launch with a double-click, use `src/Execute_RivetRook.bat` (Windows) or `src/Execute_RivetRook.sh` (Linux/macOS). On Linux, file managers such as GNOME Files open `.sh` files in a text editor by default: right-click the file and choose **Run as a Program**, or run `./src/Execute_RivetRook.sh` in a terminal. To get a `rivetrook` command in every terminal, follow [`INSTALLATION.md`](INSTALLATION.md).
 
 > **Requirements:** Python 3.8+. Node.js 24+ is installed automatically on first run if missing.
 
