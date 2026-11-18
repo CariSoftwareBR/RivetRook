@@ -149,6 +149,17 @@ install_python() {
     fi
 }
 
+link_alias() {
+    # Short `rivet` command next to `rivetrook`. Never replaces an existing
+    # file nor shadows another `rivet` program already on the PATH.
+    # $1 = launcher, $2 = directory, $3 = optional "as_root".
+    alias_path="$2/rivet"
+    [ -e "$alias_path" ] || [ -L "$alias_path" ] && return 0
+    other=$(command -v rivet 2>/dev/null) || other=
+    [ -n "$other" ] && return 0
+    ${3:-} ln -s "$1" "$alias_path" </dev/null 2>/dev/null || true
+}
+
 link_command() {
     # Always link into ~/.local/bin (and keep it on PATH for future terminals).
     # When it is not on the PATH of the current shell yet, also link into
@@ -157,6 +168,7 @@ link_command() {
     bin_dir="$HOME/.local/bin"
     mkdir -p "$bin_dir" || fail "Could not create $bin_dir."
     ln -sf "$target" "$bin_dir/rivetrook" || fail "Could not link $bin_dir/rivetrook."
+    link_alias "$target" "$bin_dir"
     ensure_path "$bin_dir"
     READY_NOW=
     case ":$PATH:" in
@@ -165,11 +177,13 @@ link_command() {
     case ":$PATH:" in
         *":/usr/local/bin:"*)
             if [ -w /usr/local/bin ] || { [ ! -e /usr/local/bin ] && [ -w /usr/local ]; }; then
-                mkdir -p /usr/local/bin && ln -sf "$target" /usr/local/bin/rivetrook && READY_NOW=1
+                mkdir -p /usr/local/bin && ln -sf "$target" /usr/local/bin/rivetrook && READY_NOW=1 \
+                    && link_alias "$target" /usr/local/bin
             else
                 say "Linking /usr/local/bin/rivetrook (your password may be requested)..."
                 as_root mkdir -p /usr/local/bin </dev/null \
-                    && as_root ln -sf "$target" /usr/local/bin/rivetrook </dev/null && READY_NOW=1
+                    && as_root ln -sf "$target" /usr/local/bin/rivetrook </dev/null && READY_NOW=1 \
+                    && link_alias "$target" /usr/local/bin as_root
             fi
             ;;
     esac
@@ -199,10 +213,12 @@ main() {
 
     printf '\n'
     say "[OK] $version installed in $dir"
+    cmd=rivetrook
+    [ -L "$HOME/.local/bin/rivet" ] && cmd="rivetrook (or: rivet)"
     if [ -n "$READY_NOW" ]; then
-        say "Run: rivetrook"
+        say "Run: $cmd"
     else
-        say "Open a NEW terminal and run: rivetrook"
+        say "Open a NEW terminal and run: $cmd"
     fi
     say "RivetRook checks for updates every time it starts."
     printf '\n'

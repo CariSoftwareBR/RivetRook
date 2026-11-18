@@ -13,7 +13,7 @@ Config: src/config.json (tools, i18n strings, prerequisite)
 Author: Paulo Carinhena (https://github.com/paulocarinhena)
 """
 
-__version__ = "1.2.2"
+__version__ = "1.2.3"
 
 import json
 import os
@@ -2048,6 +2048,58 @@ def apply_self_update(remote_version: str, update_config: bool) -> List[str]:
     return []
 
 
+_ALIAS_NAME = "rivet"
+
+
+def ensure_short_alias(os_name: str) -> Optional[str]:
+    """Create the short ``rivet`` command next to ``rivetrook``; return its name when created.
+
+    Self-update only replaces the script (or runs ``git pull``), so existing
+    installs get the alias from here rather than from the installers. Only
+    acts on the installed layout (``<root>/bin`` launchers), never overwrites
+    an existing file and skips when another ``rivet`` program is on PATH.
+    Never raises.
+    """
+    try:
+        bin_dir = Path(__file__).resolve().parent.parent / "bin"
+        if os_name == "windows":
+            # RivetRook\bin is on PATH: a sibling .cmd is enough.
+            launcher = bin_dir / "rivetrook.cmd"
+            alias = bin_dir / (_ALIAS_NAME + ".cmd")
+            if not launcher.is_file() or alias.exists() or which(_ALIAS_NAME):
+                return None
+            alias.write_bytes(
+                b'@echo off\r\nrem Short alias for rivetrook.cmd.\r\n'
+                b'call "%~dp0rivetrook.cmd" %*\r\nexit /b %ERRORLEVEL%\r\n'
+            )
+            return _ALIAS_NAME
+
+        launcher = bin_dir / "rivetrook"
+        if not launcher.is_file():
+            return None
+        target = launcher.resolve()
+        other = which(_ALIAS_NAME)
+        created = None
+        for d in (Path.home() / ".local" / "bin", Path("/usr/local/bin")):
+            link = d / "rivetrook"
+            alias = d / _ALIAS_NAME
+            # Only where the installer linked rivetrook to this very install.
+            if not link.is_symlink() or link.resolve() != target:
+                continue
+            if alias.exists() or alias.is_symlink():
+                continue
+            if other and Path(other).resolve() != target:
+                continue
+            try:
+                alias.symlink_to(target)
+                created = _ALIAS_NAME
+            except OSError:
+                pass  # e.g. /usr/local/bin not writable without sudo
+        return created
+    except Exception:
+        return None
+
+
 def restart_self() -> None:
     """Relaunch the (updated) script with the same arguments and exit."""
     args = [sys.executable, str(Path(__file__).resolve())] + sys.argv[1:]
@@ -3213,6 +3265,9 @@ def main() -> None:
                 _info("ℹ"), _t("path_persisted_next", ", ".join(persisted_paths))
             )
         )
+    alias = ensure_short_alias(os_name)
+    if alias:
+        print("  {} {}".format(_info("ℹ"), _t("alias_created", _bold(alias))))
 
     ensure_prerequisite(config, os_name, linux_family)
 

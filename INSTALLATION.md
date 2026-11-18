@@ -33,6 +33,9 @@ input. Agents should only run `rivetrook --version`, which prints the version an
 > irm https://raw.githubusercontent.com/CariSoftwareBR/RivetRook/main/install.ps1 | iex
 > ```
 >
+> Both installers (and RivetRook itself, on start) also add the short alias **`rivet`** next to
+> `rivetrook`, unless another `rivet` program already exists.
+>
 > Agents follow the steps below instead, which ask before installing system packages.
 
 ---
@@ -156,11 +159,14 @@ update, re-run steps 2–4.
 **Linux / macOS**
 
 ```sh
-rm -f "$HOME/.local/bin/rivetrook"
-# Only present when the one-command installer had to link it there:
-if [ "$(readlink /usr/local/bin/rivetrook 2>/dev/null)" = "$HOME/RivetRook/bin/rivetrook" ]; then
-  sudo rm -f /usr/local/bin/rivetrook
-fi
+for cmd in rivetrook rivet; do
+  # Only remove links that point at this install (`rivet` is the short alias).
+  for d in "$HOME/.local/bin" /usr/local/bin; do
+    if [ "$(readlink "$d/$cmd" 2>/dev/null)" = "$HOME/RivetRook/bin/rivetrook" ]; then
+      rm -f "$d/$cmd" 2>/dev/null || sudo rm -f "$d/$cmd"
+    fi
+  done
+done
 rm -rf "$HOME/RivetRook"
 ```
 

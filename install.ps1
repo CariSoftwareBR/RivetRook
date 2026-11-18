@@ -37,7 +37,7 @@ function Add-RivetRookUserPath([string]$dir) {
         [Environment]::SetEnvironmentVariable('Path', (($parts + $dir) -join ';'), 'User')
     }
     if (@($env:Path -split ';') -notcontains $dir) {
-        $env:Path = $env:Path.TrimEnd(';') + ';' + $dir
+        $env:Path = ("$env:Path".TrimEnd(';') + ';' + $dir).TrimStart(';')
     }
 }
 
@@ -136,6 +136,13 @@ function Install-RivetRook {
     # 3. Put RivetRook\bin on the user PATH (persistent) and on this session's PATH.
     Add-RivetRookUserPath $bin
 
+    # Short `rivet` command (same as rivetrook), unless another `rivet` already exists.
+    $alias = Join-Path $bin 'rivet.cmd'
+    if (-not (Test-Path $alias) -and -not (Get-Command rivet -ErrorAction SilentlyContinue)) {
+        $lines = '@echo off', 'rem Short alias for rivetrook.cmd.', 'call "%~dp0rivetrook.cmd" %*', 'exit /b %ERRORLEVEL%'
+        [IO.File]::WriteAllText($alias, (($lines -join "`r`n") + "`r`n"))
+    }
+
     # 4. Verify.
     $launcher = Join-Path $bin 'rivetrook.cmd'
     $version = & $launcher --version 2>$null
@@ -146,7 +153,7 @@ function Install-RivetRook {
 
     Write-Host ''
     Write-Host "  [OK] $version installed in $dir" -ForegroundColor Green
-    Write-Host '  Run: rivetrook'
+    if (Test-Path $alias) { Write-Host '  Run: rivetrook   (or: rivet)' } else { Write-Host '  Run: rivetrook' }
     Write-Host '  RivetRook checks for updates every time it starts.'
     Write-Host ''
 }
