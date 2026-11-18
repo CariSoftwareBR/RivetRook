@@ -13,7 +13,7 @@ Config: src/config.json (tools, i18n strings, prerequisite)
 Author: Paulo Carinhena (https://github.com/paulocarinhena)
 """
 
-__version__ = "1.2.1"
+__version__ = "1.2.2"
 
 import json
 import os
@@ -2345,7 +2345,10 @@ def _tool_row(
     if outdated:
         version_txt = "↑ {} → {}".format(installed_version_number(version), latest)
     else:
-        version_txt = version or "—"
+        # Show the bare number: raw --version output may carry extra text
+        # ("2.1.327 (Claude Code)", "Zed 1.21.0 <hash> – <path>") that would be
+        # cut mid-number by the column width. Placeholders like "installed" stay.
+        version_txt = installed_version_number(version) or version or "—"
     if len(version_txt) > ver_w:
         version_txt = version_txt[: max(1, ver_w - 1)] + "…"
     ver_str = _ljust(version_txt, ver_w)
