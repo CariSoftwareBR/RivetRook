@@ -82,7 +82,7 @@ To launch with a double-click, use `src/Execute_RivetRook.bat` (Windows) or `src
 
 ## 🧭 Usage
 
-On start, RivetRook asks for the language, offers its own update (when there is one), checks Node.js and shows the state of every tool. Pick one or more by number or name — `3`, `claude` or `1,3,5` — then the action: **install**, **upgrade**, **uninstall** or **configure the API key**. An empty `Enter` exits.
+On start, RivetRook asks for the language, offers its own update (when there is one), checks Node.js and shows the state of every tool. Pick one or more by number or name — `3`, `claude` or `1,3,5` — then the action: **install**, **upgrade**, **uninstall** or **configure the API key**. When updates are available, type **`a`** to update every outdated tool at once. While a command runs, a live status line shows the elapsed time and its latest output, so a long download never looks frozen. An empty `Enter` exits.
 
 <details>
 <summary><b>Icon legend</b></summary>
